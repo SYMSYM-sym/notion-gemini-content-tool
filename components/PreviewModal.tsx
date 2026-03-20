@@ -36,19 +36,26 @@ export default function PreviewModal({
         </div>
 
         <div className="p-4 space-y-4">
-          {result?.imageBase64 && (
-            <img
-              src={`data:image/png;base64,${result.imageBase64}`}
-              alt={entry.topic}
-              className="w-full rounded-lg"
-            />
-          )}
-          {result?.blobUrl && (
+          {result?.blobUrl ? (
             <img
               src={result.blobUrl}
               alt={entry.topic}
               className="w-full rounded-lg"
             />
+          ) : result?.imageBase64 ? (
+            <img
+              src={`data:image/png;base64,${result.imageBase64}`}
+              alt={entry.topic}
+              className="w-full rounded-lg"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-48 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                {result?.status === 'failed'
+                  ? 'Image generation failed — no image was produced'
+                  : 'No image available yet'}
+              </p>
+            </div>
           )}
 
           <div className="space-y-2">
