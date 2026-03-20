@@ -106,6 +106,7 @@ export function usePipeline() {
           const result: PipelineResult = {
             entryId: entry.id,
             status: 'failed',
+            imageBase64: lastImageBase64,
             attempts,
           };
           updateResult(entry.id, result);
