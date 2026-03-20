@@ -124,7 +124,7 @@ export default function PreviewModal({
                 srcs.forEach((src, i) => {
                   const a = document.createElement('a');
                   a.href = src;
-                  a.download = `day-${entry.day || 'x'}-${entry.topic.replace(/[^a-z0-9]/gi, '-').toLowerCase()}${srcs.length > 1 ? `-slide-${i + 1}` : ''}.png`;
+                  a.download = `Day ${entry.day || 'X'} - ${entry.topic}${srcs.length > 1 ? ` - Slide ${i + 1}` : ''}.png`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);

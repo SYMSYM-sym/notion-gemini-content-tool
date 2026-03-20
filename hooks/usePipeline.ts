@@ -170,13 +170,10 @@ export function usePipeline() {
           const blobUrls: string[] = [];
           for (let i = 0; i < images.length; i++) {
             try {
-              const slideEntry = images.length > 1
-                ? { ...entry, topic: `${entry.topic} - Slide ${i + 1}` }
-                : entry;
               const res = await fetch('/api/approve', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageBase64: images[i], entry: slideEntry }),
+                body: JSON.stringify({ imageBase64: images[i], entry, slideIndex: images.length > 1 ? i : undefined }),
               });
               if (res.ok) {
                 const data = await res.json();
