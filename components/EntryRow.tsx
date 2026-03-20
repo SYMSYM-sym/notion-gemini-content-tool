@@ -36,6 +36,11 @@ export default function EntryRow({
         <span className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
           {entry.contentType}
         </span>
+        {(entry.contentType.toLowerCase().includes('video') || entry.contentType.toLowerCase().includes('reel')) && (
+          <span className="ml-1 inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
+            Cover Only
+          </span>
+        )}
       </td>
       <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
         {entry.topic}

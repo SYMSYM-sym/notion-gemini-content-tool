@@ -88,6 +88,11 @@ export default function PreviewModal({
           <div className="space-y-2">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               <span className="font-medium">Type:</span> {entry.contentType}
+              {(entry.contentType.toLowerCase().includes('video') || entry.contentType.toLowerCase().includes('reel')) && (
+                <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium rounded bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
+                  Cover image only — video generation not supported
+                </span>
+              )}
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               <span className="font-medium">Visual Direction:</span>{' '}
@@ -117,22 +122,47 @@ export default function PreviewModal({
         <div className="flex flex-wrap gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
           {(result?.blobUrls || result?.blobUrl || result?.imageBase64 || result?.images) && (
             <button
-              onClick={() => {
-                const urls = result?.blobUrls || (result?.blobUrl ? [result.blobUrl] : []);
+              onClick={async () => {
                 const b64s = result?.images || (result?.imageBase64 ? [result.imageBase64] : []);
-                const srcs = urls.length > 0 ? urls : b64s.map(b => `data:image/png;base64,${b}`);
-                srcs.forEach((src, i) => {
-                  const a = document.createElement('a');
-                  a.href = src;
-                  a.download = `Day ${entry.day || 'X'} - ${entry.topic}${srcs.length > 1 ? ` - Slide ${i + 1}` : ''}.png`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                });
+                const urls = result?.blobUrls || (result?.blobUrl ? [result.blobUrl] : []);
+
+                for (let i = 0; i < Math.max(b64s.length, urls.length); i++) {
+                  const filename = `Day ${entry.day || 'X'} - ${entry.platform} - ${entry.topic}${Math.max(b64s.length, urls.length) > 1 ? ` - Slide ${i + 1}` : ''}.png`;
+
+                  if (urls[i]) {
+                    // Fetch cross-origin blob URL and create downloadable object URL
+                    try {
+                      const res = await fetch(urls[i]);
+                      const blob = await res.blob();
+                      const objUrl = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = objUrl;
+                      a.download = filename;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(objUrl);
+                    } catch {
+                      window.open(urls[i], '_blank');
+                    }
+                  } else if (b64s[i]) {
+                    const a = document.createElement('a');
+                    a.href = `data:image/png;base64,${b64s[i]}`;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }
+
+                  // Small delay between downloads so browser doesn't block them
+                  if (i < Math.max(b64s.length, urls.length) - 1) {
+                    await new Promise(r => setTimeout(r, 500));
+                  }
+                }
               }}
               className="flex-1 px-4 py-2 text-sm font-medium text-white bg-sage-600 rounded-lg hover:bg-sage-700 transition-colors"
             >
-              Download{(result?.images?.length || 0) > 1 ? ` (${result!.images!.length} slides)` : ''}
+              Download{(result?.images?.length || 0) > 1 ? ` All ${result!.images!.length} Slides` : ''}
             </button>
           )}
           <button

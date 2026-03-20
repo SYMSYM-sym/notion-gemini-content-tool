@@ -18,9 +18,10 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(imageBase64, 'base64');
     const slideIndex: number | undefined = body.slideIndex;
     const day = entry.day || 'X';
+    const platform = entry.platform || 'Instagram';
     const topic = entry.topic.replace(/[^a-z0-9 ]/gi, '').replace(/\s+/g, ' ').trim();
     const slideSuffix = slideIndex !== undefined ? ` - Slide ${slideIndex + 1}` : '';
-    const filename = `Day ${day} - ${topic}${slideSuffix}.png`;
+    const filename = `Day ${day} - ${platform} - ${topic}${slideSuffix}.png`;
 
     const blob = await put(filename, buffer, {
       access: 'public',
