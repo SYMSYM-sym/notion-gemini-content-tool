@@ -16,10 +16,10 @@ export async function generateImage(
   const prompt = buildGenerationPrompt(entry, previousFeedback);
   const aspectRatio = getAspectRatio(entry.contentType);
 
-  // Try Gemini 2.0 Flash with image generation
+  // Primary: Gemini 2.5 Flash with image generation
   try {
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash-image',
       generationConfig: {
         // @ts-expect-error - responseModalities is valid for image generation
         responseModalities: ['TEXT', 'IMAGE'],
@@ -39,16 +39,23 @@ export async function generateImage(
       }
     }
   } catch (e) {
-    console.error('Gemini 2.0 Flash image gen failed, trying Imagen:', e);
+    console.error('Gemini 2.5 Flash image gen failed, trying fallback:', e);
   }
 
-  // Fallback: Imagen 3
+  // Fallback: Gemini 2.0 Flash
   try {
     const model = genAI.getGenerativeModel({
-      model: 'imagen-3.0-generate-002',
+      model: 'gemini-2.0-flash',
+      generationConfig: {
+        // @ts-expect-error - responseModalities is valid for image generation
+        responseModalities: ['TEXT', 'IMAGE'],
+      },
     });
 
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent(
+      `${prompt}\n\nAspect ratio: ${aspectRatio}. Generate an image.`
+    );
+
     const response = result.response;
     const parts = response.candidates?.[0]?.content?.parts || [];
 
@@ -58,8 +65,8 @@ export async function generateImage(
       }
     }
   } catch (e) {
-    console.error('Imagen 3 failed:', e);
+    console.error('Gemini 2.0 Flash fallback failed:', e);
   }
 
-  throw new Error('Failed to generate image with both Gemini Flash and Imagen models');
+  throw new Error('Failed to generate image. No image was returned by the model.');
 }
