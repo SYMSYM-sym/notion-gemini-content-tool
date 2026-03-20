@@ -56,8 +56,71 @@ export function usePipeline() {
 
   const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+  const isVideoEntry = (entry: NotionEntry): boolean => {
+    const ct = entry.contentType.toLowerCase();
+    return ct.includes('video') || ct.includes('reel');
+  };
+
+  const processVideoEntry = async (entry: NotionEntry): Promise<PipelineResult> => {
+    updateStatus(entry.id, 'generating');
+    addLog(
+      `Day ${entry.day} - ${entry.topic}: Generating video (this may take up to 2 minutes)...`,
+      'info',
+      entry.id
+    );
+
+    try {
+      const res = await fetch('/api/generate-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entry }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Video generation failed');
+      }
+      const data = await res.json();
+
+      updateStatus(entry.id, 'passed');
+      addLog(
+        `Day ${entry.day} - ${entry.topic}: Video generated — awaiting your approval`,
+        'success',
+        entry.id
+      );
+
+      const result: PipelineResult = {
+        entryId: entry.id,
+        status: 'passed',
+        imageBase64: data.videoBase64,
+        videoUrl: data.videoUrl,
+        isVideo: true,
+        prompt: data.prompt,
+        attempts: 1,
+      };
+      updateResult(entry.id, result);
+      return result;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Video generation failed';
+      addLog(`Day ${entry.day} - ${entry.topic}: Video error - ${msg}`, 'error', entry.id);
+      updateStatus(entry.id, 'failed');
+      const result: PipelineResult = {
+        entryId: entry.id,
+        status: 'failed',
+        isVideo: true,
+        attempts: 1,
+      };
+      updateResult(entry.id, result);
+      return result;
+    }
+  };
+
   const processEntry = useCallback(
     async (entry: NotionEntry): Promise<PipelineResult> => {
+      // Route video entries to video generation
+      if (isVideoEntry(entry)) {
+        return processVideoEntry(entry);
+      }
+
       let attempts = 0;
       let lastFeedback: VerificationResult | null = null;
       let lastImages: string[] | undefined;
@@ -312,10 +375,39 @@ export function usePipeline() {
       updateStatus(entryId, 'approved');
       addLog(`Approved: Day ${entry?.day || '?'} - ${entry?.topic || entryId}`, 'success', entryId);
 
-      // Upload all images to blob
-      const allImages = result.images || (result.imageBase64 ? [result.imageBase64] : []);
       const entryData = entry || { id: entryId, day: null, topic: entryId } as NotionEntry;
       const blobUrls: string[] = [];
+
+      // Handle video upload
+      if (result.isVideo && result.imageBase64) {
+        try {
+          const res = await fetch('/api/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              videoBase64: result.imageBase64,
+              entry: entryData,
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            blobUrls.push(data.url);
+          }
+        } catch {
+          // Still marked as approved locally
+        }
+
+        updateResult(entryId, {
+          ...result,
+          status: 'approved',
+          blobUrl: blobUrls[0],
+          blobUrls: blobUrls.length > 0 ? blobUrls : undefined,
+        });
+        return;
+      }
+
+      // Upload all images to blob
+      const allImages = result.images || (result.imageBase64 ? [result.imageBase64] : []);
 
       for (let i = 0; i < allImages.length; i++) {
         try {

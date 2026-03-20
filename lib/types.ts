@@ -34,6 +34,8 @@ export interface PipelineResult {
   status: EntryStatus;
   imageBase64?: string;
   images?: string[];
+  videoUrl?: string;
+  isVideo?: boolean;
   prompt?: string;
   blobUrl?: string;
   blobUrls?: string[];
