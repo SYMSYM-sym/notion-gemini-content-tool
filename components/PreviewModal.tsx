@@ -1,0 +1,106 @@
+'use client';
+
+import { NotionEntry, PipelineResult } from '@/lib/types';
+import VerificationDetails from './VerificationDetails';
+
+interface Props {
+  entry: NotionEntry;
+  result?: PipelineResult;
+  onClose: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onRegenerate: () => void;
+}
+
+export default function PreviewModal({
+  entry,
+  result,
+  onClose,
+  onApprove,
+  onReject,
+  onRegenerate,
+}: Props) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-900 dark:text-white">
+            Day {entry.day} — {entry.topic}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {result?.imageBase64 && (
+            <img
+              src={`data:image/png;base64,${result.imageBase64}`}
+              alt={entry.topic}
+              className="w-full rounded-lg"
+            />
+          )}
+          {result?.blobUrl && (
+            <img
+              src={result.blobUrl}
+              alt={entry.topic}
+              className="w-full rounded-lg"
+            />
+          )}
+
+          <div className="space-y-2">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium">Type:</span> {entry.contentType}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium">Visual Direction:</span>{' '}
+              {entry.visualDescription}
+            </p>
+            {entry.caption && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="font-medium">Caption:</span> {entry.caption}
+              </p>
+            )}
+            {entry.hashtags && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="font-medium">Hashtags:</span> {entry.hashtags}
+              </p>
+            )}
+          </div>
+
+          {result?.verification && (
+            <VerificationDetails verification={result.verification} />
+          )}
+
+          <div className="text-xs text-gray-400">
+            Attempts: {result?.attempts || 0}
+          </div>
+        </div>
+
+        <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={onApprove}
+            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Approve
+          </button>
+          <button
+            onClick={onRegenerate}
+            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Regenerate
+          </button>
+          <button
+            onClick={onReject}
+            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Reject
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
