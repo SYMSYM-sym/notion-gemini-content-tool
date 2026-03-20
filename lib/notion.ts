@@ -85,21 +85,25 @@ export async function fetchNotionDatabase(databaseId: string): Promise<NotionEnt
     const page = await notion.getPage(databaseId);
     const collectionId = Object.keys(page.collection || {})[0];
     if (collectionId) {
-      const collection = page.collection[collectionId] as { value?: { schema?: Record<string, { name: string }> } };
-      const schema = collection?.value?.schema || {};
+      // notion-client may double-nest: collection[id].value.value or collection[id].value
+      const colRaw = page.collection[collectionId] as Record<string, unknown>;
+      const colValue = (colRaw?.value as Record<string, unknown>) || colRaw;
+      const colInner = (colValue?.value as Record<string, unknown>) || colValue;
+      const schema = (colInner?.schema as Record<string, { name: string; type: string }>) || {};
       const blockIds = Object.keys(page.block || {});
 
       const rows: Record<string, unknown>[] = [];
       for (const blockId of blockIds) {
-        const block = (page.block[blockId] as { value?: Record<string, unknown> })?.value as Record<string, unknown> | undefined;
+        const blockRaw = page.block[blockId] as Record<string, unknown>;
+        const blockOuter = (blockRaw?.value as Record<string, unknown>) || blockRaw;
+        const block = (blockOuter?.value as Record<string, unknown>) || blockOuter;
         if (block?.type === 'page' && block?.properties) {
           const props = block.properties as Record<string, unknown>;
           const row: Record<string, unknown> = { id: blockId };
           for (const [propId, propSchema] of Object.entries(schema)) {
-            const s = propSchema as { name: string };
             const val = props[propId];
             if (val) {
-              row[s.name] = Array.isArray(val)
+              row[propSchema.name] = Array.isArray(val)
                 ? val.map((v: unknown[]) => v[0]).join('')
                 : val;
             }
