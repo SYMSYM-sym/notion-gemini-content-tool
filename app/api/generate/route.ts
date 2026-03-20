@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateImage } from '@/lib/gemini';
+import { generateImages } from '@/lib/gemini';
 import { NotionEntry, VerificationResult } from '@/lib/types';
 
 export const maxDuration = 60;
@@ -14,9 +14,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No entry provided' }, { status: 400 });
     }
 
-    const result = await generateImage(entry, previousFeedback);
+    const { images, prompts } = await generateImages(entry, previousFeedback);
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      imageBase64: images[0],
+      images,
+      prompt: prompts[0],
+      prompts,
+      slideCount: images.length,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Image generation failed';
     console.error('Generate error:', error);

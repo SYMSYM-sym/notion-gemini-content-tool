@@ -60,20 +60,20 @@ export function usePipeline() {
     async (entry: NotionEntry): Promise<PipelineResult> => {
       let attempts = 0;
       let lastFeedback: VerificationResult | null = null;
-      let lastImageBase64: string | undefined;
+      let lastImages: string[] | undefined;
 
       while (attempts < 3) {
         attempts++;
 
-        // Step 1: Generate
+        // Step 1: Generate (may produce multiple slides for carousels)
         updateStatus(entry.id, 'generating');
         addLog(
-          `Day ${entry.day} - ${entry.topic}: Generating image (attempt ${attempts}/3)...`,
+          `Day ${entry.day} - ${entry.topic}: Generating image(s) (attempt ${attempts}/3)...`,
           'info',
           entry.id
         );
 
-        let imageBase64: string;
+        let images: string[];
         let prompt: string;
         try {
           const res = await fetch('/api/generate', {
@@ -89,14 +89,20 @@ export function usePipeline() {
             throw new Error(err.error || 'Generation failed');
           }
           const data = await res.json();
-          imageBase64 = data.imageBase64;
+          images = data.images || [data.imageBase64];
           prompt = data.prompt;
-          lastImageBase64 = imageBase64;
+          lastImages = images;
+          if (images.length > 1) {
+            addLog(
+              `Day ${entry.day} - ${entry.topic}: Generated ${images.length} slides`,
+              'info',
+              entry.id
+            );
+          }
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Generation failed';
           addLog(`Day ${entry.day} - ${entry.topic}: Error - ${msg}`, 'error', entry.id);
 
-          // Retry generation once on API error
           if (attempts === 1) {
             addLog(`Day ${entry.day} - ${entry.topic}: Retrying generation...`, 'warning', entry.id);
             continue;
@@ -106,14 +112,15 @@ export function usePipeline() {
           const result: PipelineResult = {
             entryId: entry.id,
             status: 'failed',
-            imageBase64: lastImageBase64,
+            imageBase64: lastImages?.[0],
+            images: lastImages,
             attempts,
           };
           updateResult(entry.id, result);
           return result;
         }
 
-        // Step 2: Verify
+        // Step 2: Verify (check the first/cover image)
         updateStatus(entry.id, 'verifying');
         addLog(
           `Day ${entry.day} - ${entry.topic}: Verifying image...`,
@@ -126,7 +133,7 @@ export function usePipeline() {
           const res = await fetch('/api/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageBase64, entry }),
+            body: JSON.stringify({ imageBase64: images[0], entry }),
           });
           if (!res.ok) {
             const err = await res.json();
@@ -134,7 +141,6 @@ export function usePipeline() {
           }
           verification = await res.json();
         } catch (error) {
-          // If verification fails, auto-approve with a note
           const msg = error instanceof Error ? error.message : 'Verification error';
           addLog(
             `Day ${entry.day} - ${entry.topic}: Verification error (${msg}), auto-approving`,
@@ -158,34 +164,42 @@ export function usePipeline() {
 
         // Step 3: Decide
         if (verification.score >= 7) {
-          // Approve
           updateStatus(entry.id, 'approved');
-          let blobUrl: string | undefined;
-          try {
-            const res = await fetch('/api/approve', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ imageBase64, entry }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              blobUrl = data.url;
+
+          // Upload all images to blob
+          const blobUrls: string[] = [];
+          for (let i = 0; i < images.length; i++) {
+            try {
+              const slideEntry = images.length > 1
+                ? { ...entry, topic: `${entry.topic} - Slide ${i + 1}` }
+                : entry;
+              const res = await fetch('/api/approve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageBase64: images[i], entry: slideEntry }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                blobUrls.push(data.url);
+              }
+            } catch {
+              // Continue uploading remaining slides
             }
-          } catch {
-            // Blob upload failed but image is still approved
           }
 
           addLog(
-            `Day ${entry.day} - ${entry.topic}: Auto-approved (${verification.score}/10)`,
+            `Day ${entry.day} - ${entry.topic}: Auto-approved (${verification.score}/10)${images.length > 1 ? ` — ${images.length} slides uploaded` : ''}`,
             'success',
             entry.id
           );
           const result: PipelineResult = {
             entryId: entry.id,
             status: 'approved',
-            imageBase64,
+            imageBase64: images[0],
+            images,
             prompt,
-            blobUrl,
+            blobUrl: blobUrls[0],
+            blobUrls: blobUrls.length > 0 ? blobUrls : undefined,
             verification,
             attempts,
           };
@@ -221,7 +235,8 @@ export function usePipeline() {
       const result: PipelineResult = {
         entryId: entry.id,
         status: 'needs_review',
-        imageBase64: lastImageBase64,
+        imageBase64: lastImages?.[0],
+        images: lastImages,
         verification: lastFeedback || undefined,
         attempts,
       };

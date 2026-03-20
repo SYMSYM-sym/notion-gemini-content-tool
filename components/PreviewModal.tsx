@@ -36,27 +36,54 @@ export default function PreviewModal({
         </div>
 
         <div className="p-4 space-y-4">
-          {result?.blobUrl ? (
-            <img
-              src={result.blobUrl}
-              alt={entry.topic}
-              className="w-full rounded-lg"
-            />
-          ) : result?.imageBase64 ? (
-            <img
-              src={`data:image/png;base64,${result.imageBase64}`}
-              alt={entry.topic}
-              className="w-full rounded-lg"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-48 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {result?.status === 'failed'
-                  ? 'Image generation failed — no image was produced'
-                  : 'No image available yet'}
-              </p>
-            </div>
-          )}
+          {(() => {
+            const blobUrls = result?.blobUrls || (result?.blobUrl ? [result.blobUrl] : []);
+            const images = result?.images || (result?.imageBase64 ? [result.imageBase64] : []);
+            const displayUrls = blobUrls.length > 0 ? blobUrls : [];
+            const displayB64 = blobUrls.length > 0 ? [] : images;
+
+            if (displayUrls.length > 0) {
+              return (
+                <div className={displayUrls.length > 1 ? 'grid grid-cols-2 gap-2' : ''}>
+                  {displayUrls.map((url, i) => (
+                    <div key={i} className="relative">
+                      {displayUrls.length > 1 && (
+                        <span className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                          Slide {i + 1}
+                        </span>
+                      )}
+                      <img src={url} alt={`${entry.topic} slide ${i + 1}`} className="w-full rounded-lg" />
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+            if (displayB64.length > 0) {
+              return (
+                <div className={displayB64.length > 1 ? 'grid grid-cols-2 gap-2' : ''}>
+                  {displayB64.map((b64, i) => (
+                    <div key={i} className="relative">
+                      {displayB64.length > 1 && (
+                        <span className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                          Slide {i + 1}
+                        </span>
+                      )}
+                      <img src={`data:image/png;base64,${b64}`} alt={`${entry.topic} slide ${i + 1}`} className="w-full rounded-lg" />
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+            return (
+              <div className="flex items-center justify-center h-48 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  {result?.status === 'failed'
+                    ? 'Image generation failed — no image was produced'
+                    : 'No image available yet'}
+                </p>
+              </div>
+            );
+          })()}
 
           <div className="space-y-2">
             <p className="text-sm text-gray-600 dark:text-gray-400">

@@ -34,3 +34,6 @@ next-env.d.ts
 
 # old files
 /_old
+
+.vercel
+.env*.local
