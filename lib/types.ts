@@ -15,6 +15,7 @@ export type EntryStatus =
   | 'generating'
   | 'verifying'
   | 'retrying'
+  | 'passed'
   | 'approved'
   | 'needs_review'
   | 'rejected'

@@ -9,6 +9,7 @@ interface Props {
   results: Map<string, PipelineResult>;
   currentEntryId: string | null;
   onGenerate: (entry: NotionEntry) => void;
+  onApprove: (entry: NotionEntry) => void;
   onRowClick: (entry: NotionEntry) => void;
 }
 
@@ -18,6 +19,7 @@ export default function EntryTable({
   results,
   currentEntryId,
   onGenerate,
+  onApprove,
   onRowClick,
 }: Props) {
   if (entries.length === 0) {
@@ -65,6 +67,7 @@ export default function EntryTable({
               result={results.get(entry.id)}
               isCurrent={entry.id === currentEntryId}
               onGenerate={() => onGenerate(entry)}
+              onApprove={() => onApprove(entry)}
               onClick={() => onRowClick(entry)}
             />
           ))}

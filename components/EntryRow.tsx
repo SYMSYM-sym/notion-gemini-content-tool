@@ -9,6 +9,7 @@ interface Props {
   result?: PipelineResult;
   isCurrent: boolean;
   onGenerate: () => void;
+  onApprove: () => void;
   onClick: () => void;
 }
 
@@ -18,6 +19,7 @@ export default function EntryRow({
   result,
   isCurrent,
   onGenerate,
+  onApprove,
   onClick,
 }: Props) {
   return (
@@ -74,6 +76,17 @@ export default function EntryRow({
             className="px-3 py-1 text-xs font-medium text-white bg-sage-600 rounded hover:bg-sage-700 transition-colors"
           >
             Generate
+          </button>
+        )}
+        {status === 'passed' && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onApprove();
+            }}
+            className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 transition-colors"
+          >
+            Approve
           </button>
         )}
         {(status === 'approved' || status === 'needs_review') && result?.blobUrl && (

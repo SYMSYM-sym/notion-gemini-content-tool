@@ -6,6 +6,7 @@ interface Props {
   processed: number;
   total: number;
   pendingCount: number;
+  passedCount: number;
   approvedCount: number;
   reviewCount: number;
   onStart: () => void;
@@ -20,6 +21,7 @@ export default function PipelineControls({
   processed,
   total,
   pendingCount,
+  passedCount,
   approvedCount,
   reviewCount,
   onStart,
@@ -75,7 +77,8 @@ export default function PipelineControls({
       )}
 
       <div className="flex gap-4 text-sm text-gray-600 dark:text-gray-400">
-        <span>{total || pendingCount + approvedCount + reviewCount} total</span>
+        <span>{total || pendingCount + passedCount + approvedCount + reviewCount} total</span>
+        <span className="text-blue-600 dark:text-blue-400">{passedCount} passed</span>
         <span className="text-green-600 dark:text-green-400">{approvedCount} approved</span>
         <span className="text-orange-600 dark:text-orange-400">{reviewCount} needs review</span>
         <span>{pendingCount} pending</span>
