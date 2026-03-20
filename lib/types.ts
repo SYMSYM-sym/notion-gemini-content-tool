@@ -32,8 +32,10 @@ export interface PipelineResult {
   entryId: string;
   status: EntryStatus;
   imageBase64?: string;
+  images?: string[];
   prompt?: string;
   blobUrl?: string;
+  blobUrls?: string[];
   verification?: VerificationResult;
   attempts: number;
 }

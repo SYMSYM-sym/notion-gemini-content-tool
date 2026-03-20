@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NotionEntry, VerificationResult } from './types';
-import { buildGenerationPrompt, getAspectRatio } from './prompts';
+import { buildSlidePrompts, getAspectRatio } from './prompts';
 
 function getGenAI(): GoogleGenerativeAI {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -8,14 +8,11 @@ function getGenAI(): GoogleGenerativeAI {
   return new GoogleGenerativeAI(apiKey);
 }
 
-export async function generateImage(
-  entry: NotionEntry,
-  previousFeedback?: VerificationResult | null
-): Promise<{ imageBase64: string; prompt: string }> {
-  const genAI = getGenAI();
-  const prompt = buildGenerationPrompt(entry, previousFeedback);
-  const aspectRatio = getAspectRatio(entry.contentType);
-
+async function generateSingleImage(
+  genAI: GoogleGenerativeAI,
+  prompt: string,
+  aspectRatio: string
+): Promise<string> {
   // Primary: Gemini 2.5 Flash with image generation
   try {
     const model = genAI.getGenerativeModel({
@@ -30,16 +27,14 @@ export async function generateImage(
       `${prompt}\n\nAspect ratio: ${aspectRatio}. Generate an image.`
     );
 
-    const response = result.response;
-    const parts = response.candidates?.[0]?.content?.parts || [];
-
+    const parts = result.response.candidates?.[0]?.content?.parts || [];
     for (const part of parts) {
       if (part.inlineData?.mimeType?.startsWith('image/')) {
-        return { imageBase64: part.inlineData.data, prompt };
+        return part.inlineData.data;
       }
     }
   } catch (e) {
-    console.error('Gemini 2.5 Flash image gen failed, trying fallback:', e);
+    console.error('Gemini 2.5 Flash image gen failed:', e);
   }
 
   // Fallback: Gemini 2.0 Flash
@@ -56,12 +51,10 @@ export async function generateImage(
       `${prompt}\n\nAspect ratio: ${aspectRatio}. Generate an image.`
     );
 
-    const response = result.response;
-    const parts = response.candidates?.[0]?.content?.parts || [];
-
+    const parts = result.response.candidates?.[0]?.content?.parts || [];
     for (const part of parts) {
       if (part.inlineData?.mimeType?.startsWith('image/')) {
-        return { imageBase64: part.inlineData.data, prompt };
+        return part.inlineData.data;
       }
     }
   } catch (e) {
@@ -69,4 +62,36 @@ export async function generateImage(
   }
 
   throw new Error('Failed to generate image. No image was returned by the model.');
+}
+
+export async function generateImages(
+  entry: NotionEntry,
+  previousFeedback?: VerificationResult | null
+): Promise<{ images: string[]; prompts: string[] }> {
+  const genAI = getGenAI();
+  const prompts = buildSlidePrompts(entry, previousFeedback);
+  const aspectRatio = getAspectRatio(entry.contentType);
+
+  const images: string[] = [];
+  for (let i = 0; i < prompts.length; i++) {
+    console.log(`Generating slide ${i + 1}/${prompts.length}...`);
+    const imageBase64 = await generateSingleImage(genAI, prompts[i], aspectRatio);
+    images.push(imageBase64);
+
+    // Small delay between slides to avoid rate limits
+    if (i < prompts.length - 1) {
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+
+  return { images, prompts };
+}
+
+// Backward compat
+export async function generateImage(
+  entry: NotionEntry,
+  previousFeedback?: VerificationResult | null
+): Promise<{ imageBase64: string; prompt: string }> {
+  const { images, prompts } = await generateImages(entry, previousFeedback);
+  return { imageBase64: images[0], prompt: prompts[0] };
 }

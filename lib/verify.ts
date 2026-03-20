@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NotionEntry, VerificationResult } from './types';
-import { VERIFICATION_PROMPT } from './prompts';
+import { buildVerificationPrompt } from './prompts';
 
 export async function verifyImage(
   imageBase64: string,
@@ -11,6 +11,8 @@ export async function verifyImage(
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+  const verificationPrompt = buildVerificationPrompt(entry);
 
   const userPrompt = `Original visual description/instructions:
 "${entry.visualDescription}"
@@ -27,7 +29,7 @@ Please evaluate the attached image against these instructions.`;
         data: imageBase64,
       },
     },
-    `${VERIFICATION_PROMPT}\n\n${userPrompt}`,
+    `${verificationPrompt}\n\n${userPrompt}`,
   ]);
 
   const text = result.response.text();
