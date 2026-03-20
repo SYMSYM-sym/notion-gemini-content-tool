@@ -37,6 +37,32 @@ export default function PreviewModal({
 
         <div className="p-4 space-y-4">
           {(() => {
+            // Video content
+            if (result?.isVideo) {
+              const videoSrc = result.blobUrl || (result.imageBase64 ? `data:video/mp4;base64,${result.imageBase64}` : null);
+              if (videoSrc) {
+                return (
+                  <video
+                    src={videoSrc}
+                    controls
+                    autoPlay
+                    loop
+                    muted
+                    className="w-full rounded-lg"
+                    playsInline
+                  />
+                );
+              }
+              return (
+                <div className="flex items-center justify-center h-48 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    {result?.status === 'failed' ? 'Video generation failed' : 'No video available yet'}
+                  </p>
+                </div>
+              );
+            }
+
+            // Image content
             const blobUrls = result?.blobUrls || (result?.blobUrl ? [result.blobUrl] : []);
             const images = result?.images || (result?.imageBase64 ? [result.imageBase64] : []);
             const displayUrls = blobUrls.length > 0 ? blobUrls : [];
@@ -78,8 +104,8 @@ export default function PreviewModal({
               <div className="flex items-center justify-center h-48 bg-gray-100 dark:bg-gray-700 rounded-lg">
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
                   {result?.status === 'failed'
-                    ? 'Image generation failed — no image was produced'
-                    : 'No image available yet'}
+                    ? 'Generation failed — no content was produced'
+                    : 'No content available yet'}
                 </p>
               </div>
             );
@@ -90,7 +116,7 @@ export default function PreviewModal({
               <span className="font-medium">Type:</span> {entry.contentType}
               {(entry.contentType.toLowerCase().includes('video') || entry.contentType.toLowerCase().includes('reel')) && (
                 <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium rounded bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
-                  Cover image only — video generation not supported
+                  AI-generated video (Veo 2)
                 </span>
               )}
             </p>
@@ -127,7 +153,8 @@ export default function PreviewModal({
                 const urls = result?.blobUrls || (result?.blobUrl ? [result.blobUrl] : []);
 
                 for (let i = 0; i < Math.max(b64s.length, urls.length); i++) {
-                  const filename = `Day ${entry.day || 'X'} - ${entry.platform} - ${entry.topic}${Math.max(b64s.length, urls.length) > 1 ? ` - Slide ${i + 1}` : ''}.png`;
+                  const ext = result?.isVideo ? 'mp4' : 'png';
+                  const filename = `Day ${entry.day || 'X'} - ${entry.platform} - ${entry.topic}${Math.max(b64s.length, urls.length) > 1 ? ` - Slide ${i + 1}` : ''}.${ext}`;
 
                   if (urls[i]) {
                     // Fetch cross-origin blob URL and create downloadable object URL
@@ -147,7 +174,8 @@ export default function PreviewModal({
                     }
                   } else if (b64s[i]) {
                     const a = document.createElement('a');
-                    a.href = `data:image/png;base64,${b64s[i]}`;
+                    const mimeType = result?.isVideo ? 'video/mp4' : 'image/png';
+                    a.href = `data:${mimeType};base64,${b64s[i]}`;
                     a.download = filename;
                     document.body.appendChild(a);
                     a.click();
