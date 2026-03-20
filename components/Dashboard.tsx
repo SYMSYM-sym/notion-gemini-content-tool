@@ -30,7 +30,8 @@ export default function Dashboard() {
       const res = await fetch(`/api/notion?url=${encodeURIComponent(url)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setEntries(data.entries);
+      const sorted = [...data.entries].sort((a: NotionEntry, b: NotionEntry) => (a.day ?? 999) - (b.day ?? 999));
+      setEntries(sorted);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load Notion data');
     } finally {

@@ -114,7 +114,27 @@ export default function PreviewModal({
           </div>
         </div>
 
-        <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-wrap gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+          {(result?.blobUrls || result?.blobUrl || result?.imageBase64 || result?.images) && (
+            <button
+              onClick={() => {
+                const urls = result?.blobUrls || (result?.blobUrl ? [result.blobUrl] : []);
+                const b64s = result?.images || (result?.imageBase64 ? [result.imageBase64] : []);
+                const srcs = urls.length > 0 ? urls : b64s.map(b => `data:image/png;base64,${b}`);
+                srcs.forEach((src, i) => {
+                  const a = document.createElement('a');
+                  a.href = src;
+                  a.download = `day-${entry.day || 'x'}-${entry.topic.replace(/[^a-z0-9]/gi, '-').toLowerCase()}${srcs.length > 1 ? `-slide-${i + 1}` : ''}.png`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                });
+              }}
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-sage-600 rounded-lg hover:bg-sage-700 transition-colors"
+            >
+              Download{(result?.images?.length || 0) > 1 ? ` (${result!.images!.length} slides)` : ''}
+            </button>
+          )}
           <button
             onClick={onApprove}
             className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
