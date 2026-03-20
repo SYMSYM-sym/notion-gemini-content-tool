@@ -43,6 +43,7 @@ export default function FilterBar({
         >
           <option value="all">All</option>
           <option value="pending">Pending</option>
+          <option value="passed">Passed</option>
           <option value="approved">Approved</option>
           <option value="needs_review">Needs Review</option>
           <option value="failed">Failed</option>

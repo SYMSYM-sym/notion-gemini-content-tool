@@ -164,39 +164,20 @@ export function usePipeline() {
 
         // Step 3: Decide
         if (verification.score >= 7) {
-          updateStatus(entry.id, 'approved');
-
-          // Upload all images to blob
-          const blobUrls: string[] = [];
-          for (let i = 0; i < images.length; i++) {
-            try {
-              const res = await fetch('/api/approve', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageBase64: images[i], entry, slideIndex: images.length > 1 ? i : undefined }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                blobUrls.push(data.url);
-              }
-            } catch {
-              // Continue uploading remaining slides
-            }
-          }
+          // Mark as passed — awaits manual user approval before uploading to blob
+          updateStatus(entry.id, 'passed');
 
           addLog(
-            `Day ${entry.day} - ${entry.topic}: Auto-approved (${verification.score}/10)${images.length > 1 ? ` — ${images.length} slides uploaded` : ''}`,
+            `Day ${entry.day} - ${entry.topic}: Passed verification (${verification.score}/10)${images.length > 1 ? ` — ${images.length} slides` : ''} — awaiting your approval`,
             'success',
             entry.id
           );
           const result: PipelineResult = {
             entryId: entry.id,
-            status: 'approved',
+            status: 'passed',
             imageBase64: images[0],
             images,
             prompt,
-            blobUrl: blobUrls[0],
-            blobUrls: blobUrls.length > 0 ? blobUrls : undefined,
             verification,
             attempts,
           };
@@ -324,30 +305,44 @@ export function usePipeline() {
   }, []);
 
   const manualApprove = useCallback(
-    async (entryId: string) => {
+    async (entryId: string, entry?: NotionEntry) => {
       const result = results.get(entryId);
-      if (!result?.imageBase64) return;
+      if (!result?.imageBase64 && !result?.images?.length) return;
 
       updateStatus(entryId, 'approved');
-      addLog(`Manually approved entry ${entryId}`, 'success', entryId);
+      addLog(`Approved: Day ${entry?.day || '?'} - ${entry?.topic || entryId}`, 'success', entryId);
 
-      // Upload to blob
-      try {
-        const res = await fetch('/api/approve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageBase64: result.imageBase64,
-            entry: { id: entryId, day: null, topic: entryId } as NotionEntry,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          updateResult(entryId, { ...result, status: 'approved', blobUrl: data.url });
+      // Upload all images to blob
+      const allImages = result.images || (result.imageBase64 ? [result.imageBase64] : []);
+      const entryData = entry || { id: entryId, day: null, topic: entryId } as NotionEntry;
+      const blobUrls: string[] = [];
+
+      for (let i = 0; i < allImages.length; i++) {
+        try {
+          const res = await fetch('/api/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageBase64: allImages[i],
+              entry: entryData,
+              slideIndex: allImages.length > 1 ? i : undefined,
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            blobUrls.push(data.url);
+          }
+        } catch {
+          // Continue with remaining
         }
-      } catch {
-        // Still marked as approved locally
       }
+
+      updateResult(entryId, {
+        ...result,
+        status: 'approved',
+        blobUrl: blobUrls[0],
+        blobUrls: blobUrls.length > 0 ? blobUrls : undefined,
+      });
     },
     [results, updateStatus, updateResult, addLog]
   );

@@ -55,14 +55,15 @@ export default function Dashboard() {
   }, [entries, platform, statusFilter, search, pipeline.statuses]);
 
   const counts = useMemo(() => {
-    let pending = 0, approved = 0, review = 0;
+    let pending = 0, passed = 0, approved = 0, review = 0;
     for (const entry of entries) {
       const s = pipeline.statuses.get(entry.id) || 'pending';
       if (s === 'pending') pending++;
+      else if (s === 'passed') passed++;
       else if (s === 'approved') approved++;
       else if (s === 'needs_review') review++;
     }
-    return { pending, approved, review };
+    return { pending, passed, approved, review };
   }, [entries, pipeline.statuses]);
 
   const reviewEntries = useMemo(
@@ -133,6 +134,7 @@ export default function Dashboard() {
               processed={pipeline.processed}
               total={pipeline.total}
               pendingCount={counts.pending}
+              passedCount={counts.passed}
               approvedCount={counts.approved}
               reviewCount={counts.review}
               onStart={handleStartPipeline}
@@ -158,6 +160,7 @@ export default function Dashboard() {
               results={pipeline.results}
               currentEntryId={pipeline.currentEntryId}
               onGenerate={handleSingleGenerate}
+              onApprove={(entry) => pipeline.manualApprove(entry.id, entry)}
               onRowClick={setSelectedEntry}
             />
 
@@ -186,7 +189,10 @@ export default function Dashboard() {
               <ReviewQueue
                 entries={reviewEntries}
                 results={pipeline.results}
-                onApprove={(id) => pipeline.manualApprove(id)}
+                onApprove={(id) => {
+                  const e = entries.find((x) => x.id === id);
+                  pipeline.manualApprove(id, e);
+                }}
                 onReject={(id) => pipeline.rejectEntry(id)}
                 onRegenerate={(entry) => {
                   pipeline.resetEntry(entry.id);
@@ -204,7 +210,7 @@ export default function Dashboard() {
             result={pipeline.results.get(selectedEntry.id)}
             onClose={() => setSelectedEntry(null)}
             onApprove={() => {
-              pipeline.manualApprove(selectedEntry.id);
+              pipeline.manualApprove(selectedEntry.id, selectedEntry);
               setSelectedEntry(null);
             }}
             onReject={() => {
