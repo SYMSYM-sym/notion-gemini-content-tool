@@ -98,14 +98,17 @@ export async function generateVideo(
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
 
   const aspectRatio = getAspectRatio(entry.contentType);
+  // Replace "overlay" with "audio dialogue" for video entries
+  const visualDirection = entry.visualDescription.replace(/overlay/gi, 'audio dialogue');
   const prompt = `Create a professional, high-quality short video for a women's health and wellness account (@herhealthinfo).
 
 Topic: ${entry.topic}
-Visual direction: ${entry.visualDescription}
+Visual direction: ${visualDirection}
 
 Style: Clean, modern, feminine wellness aesthetic. Calming, empowering, and professional.
 Brand colors: Soft sage green and blush pink tones.
-Smooth, gentle movements. High production quality.`;
+Smooth, gentle movements. High production quality.
+IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, or text overlays to the video. The video should be purely visual with no text of any kind.`;
 
   // Start the long-running operation
   const startRes = await fetch(
