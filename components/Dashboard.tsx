@@ -26,6 +26,8 @@ export default function Dashboard() {
   const loadNotion = useCallback(async (url: string) => {
     setIsLoadingNotion(true);
     setError(null);
+    // Reset all pipeline state so nothing carries over from a previous session
+    pipeline.resetAll();
     try {
       const res = await fetch(`/api/notion?url=${encodeURIComponent(url)}`);
       const data = await res.json();
@@ -37,7 +39,7 @@ export default function Dashboard() {
     } finally {
       setIsLoadingNotion(false);
     }
-  }, []);
+  }, [pipeline]);
 
   const filteredEntries = useMemo(() => {
     return entries.filter((e) => {

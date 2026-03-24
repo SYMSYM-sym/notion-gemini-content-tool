@@ -447,6 +447,20 @@ export function usePipeline() {
     [updateStatus, addLog]
   );
 
+  /** Clear all pipeline state — call when loading a new Notion database */
+  const resetAll = useCallback(() => {
+    runningRef.current = false;
+    pauseRef.current = false;
+    setStatuses(new Map());
+    setResults(new Map());
+    setLog([]);
+    setIsRunning(false);
+    setIsPaused(false);
+    setCurrentEntryId(null);
+    setProcessed(0);
+    setTotal(0);
+  }, []);
+
   return {
     statuses,
     results,
@@ -461,6 +475,7 @@ export function usePipeline() {
     stopPipeline,
     processEntry,
     resetEntry,
+    resetAll,
     manualApprove,
     rejectEntry,
     updateStatus,

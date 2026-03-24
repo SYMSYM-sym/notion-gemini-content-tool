@@ -66,7 +66,7 @@ export async function fetchNotionDatabase(databaseId: string): Promise<NotionEnt
   try {
     const res = await fetch(
       `https://notion-api.splitbee.io/v1/table/${databaseId}`,
-      { next: { revalidate: 300 } }
+      { cache: 'no-store' }
     );
     if (res.ok) {
       const data = await res.json();
