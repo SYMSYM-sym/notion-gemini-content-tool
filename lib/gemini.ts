@@ -88,7 +88,7 @@ export async function generateImages(
 }
 
 /**
- * Generate a video using Veo 2. Returns a downloadable video URL.
+ * Generate a video using Veo 3.0 Fast (includes audio).
  * This is a long-running operation that polls until complete.
  */
 export async function generateVideo(
@@ -100,19 +100,20 @@ export async function generateVideo(
   const aspectRatio = getAspectRatio(entry.contentType);
   // Replace "overlay" with "audio dialogue" for video entries
   const visualDirection = entry.visualDescription.replace(/overlay/gi, 'audio dialogue');
-  const prompt = `Create a professional, high-quality short video for a women's health and wellness account (@herhealthinfo).
+  const prompt = `Create a professional, high-quality short video with ambient sound for a women's health and wellness account (@herhealthinfo).
 
 Topic: ${entry.topic}
 Visual direction: ${visualDirection}
 
+Audio: Include calming ambient music or gentle background sounds appropriate to the scene. Any spoken dialogue should be brief and fit within 8 seconds.
 Style: Clean, modern, feminine wellness aesthetic. Calming, empowering, and professional.
 Brand colors: Soft sage green and blush pink tones.
 Smooth, gentle movements. High production quality.
-IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, or text overlays to the video. The video should be purely visual with no text of any kind.`;
+IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, or text overlays to the video. The video should be purely visual (with audio) and no text of any kind.`;
 
-  // Start the long-running operation
+  // Start the long-running operation with Veo 3.0 Fast (includes audio)
   const startRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/veo-2.0-generate-001:predictLongRunning?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/veo-3.0-fast-generate-001:predictLongRunning?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -120,7 +121,7 @@ IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, or text 
         instances: [{ prompt }],
         parameters: {
           aspectRatio,
-          durationSeconds: 5,
+          durationSeconds: 8,
         },
       }),
     }
@@ -135,8 +136,8 @@ IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, or text 
   const operationName = startData.name;
   if (!operationName) throw new Error('No operation name returned');
 
-  // Poll for completion (up to 2 minutes)
-  for (let i = 0; i < 24; i++) {
+  // Poll for completion (up to 3 minutes — Veo 3 takes longer)
+  for (let i = 0; i < 36; i++) {
     await new Promise((r) => setTimeout(r, 5000));
 
     const pollRes = await fetch(
@@ -154,7 +155,7 @@ IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, or text 
     }
   }
 
-  throw new Error('Video generation timed out after 2 minutes');
+  throw new Error('Video generation timed out after 3 minutes');
 }
 
 // Backward compat

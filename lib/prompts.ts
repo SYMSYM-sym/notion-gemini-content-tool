@@ -27,8 +27,18 @@ export function getAspectRatio(contentType: string): string {
  */
 export function parseSlides(visualDescription: string): string[] {
   // Try [Slide N] or [Slide N-M] patterns
-  const parts = visualDescription.split(/\[Slide\s*\d+(?:-\d+)?\]\s*/i).filter((s) => s.trim());
-  if (parts.length > 1) return parts.map((s) => s.trim());
+  const parts = visualDescription.split(/\[Slide\s*\d+(?:\s*-\s*\d+)?\]\s*/i).filter((s) => s.trim());
+  if (parts.length > 1) {
+    // Filter out preamble text that comes before the first [Slide] marker
+    // (e.g. "Visuals:" appearing before [Slide 1])
+    const firstSlideIdx = visualDescription.search(/\[Slide\s*\d/i);
+    const preamble = firstSlideIdx > 0 ? visualDescription.substring(0, firstSlideIdx).trim() : '';
+    const filtered = preamble
+      ? parts.filter((s) => s.trim() !== preamble.replace(/[:\s]+$/, '').trim())
+      : parts;
+    if (filtered.length > 1) return filtered.map((s) => s.trim());
+    if (parts.length > 1) return parts.map((s) => s.trim());
+  }
 
   // Try "Slide N:" patterns
   const parts2 = visualDescription.split(/Slide\s*\d+[:\s]+/i).filter((s) => s.trim());

@@ -116,7 +116,7 @@ export default function PreviewModal({
               <span className="font-medium">Type:</span> {entry.contentType}
               {(entry.contentType.toLowerCase().includes('video') || entry.contentType.toLowerCase().includes('reel')) && (
                 <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium rounded bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
-                  AI-generated video (Veo 2)
+                  AI-generated video with audio (Veo 3)
                 </span>
               )}
             </p>
@@ -182,9 +182,9 @@ export default function PreviewModal({
                     document.body.removeChild(a);
                   }
 
-                  // Small delay between downloads so browser doesn't block them
+                  // Wait between downloads so browser processes them in order
                   if (i < Math.max(b64s.length, urls.length) - 1) {
-                    await new Promise(r => setTimeout(r, 500));
+                    await new Promise(r => setTimeout(r, 1500));
                   }
                 }
               }}

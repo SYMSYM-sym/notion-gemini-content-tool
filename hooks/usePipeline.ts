@@ -64,7 +64,7 @@ export function usePipeline() {
   const processVideoEntry = async (entry: NotionEntry): Promise<PipelineResult> => {
     updateStatus(entry.id, 'generating');
     addLog(
-      `Day ${entry.day} - ${entry.topic}: Generating video (this may take up to 2 minutes)...`,
+      `Day ${entry.day} - ${entry.topic}: Generating video with audio (Veo 3 — may take up to 3 minutes)...`,
       'info',
       entry.id
     );
@@ -321,10 +321,12 @@ export function usePipeline() {
         await processEntry(entry);
         setProcessed(i + 1);
 
-        // Rate limit cooldown
+        // Rate limit cooldown — longer for videos due to Veo rate limits
         if (i < pendingEntries.length - 1 && runningRef.current && !pauseRef.current) {
-          addLog('Cooling down (2s)...', 'info');
-          await delay(2000);
+          const isVideo = entry.contentType.toLowerCase().includes('video') || entry.contentType.toLowerCase().includes('reel');
+          const cooldown = isVideo ? 5000 : 2000;
+          addLog(`Cooling down (${cooldown / 1000}s)...`, 'info');
+          await delay(cooldown);
         }
       }
 

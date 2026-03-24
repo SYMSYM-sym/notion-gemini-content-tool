@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateImages } from '@/lib/gemini';
 import { NotionEntry, VerificationResult } from '@/lib/types';
 
-export const maxDuration = 60;
+// Carousels generate multiple slides sequentially — 4 slides × ~15s each = 60s
+// Add headroom for retries and rate limiting
+export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
   try {
