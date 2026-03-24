@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractDatabaseId, fetchNotionDatabase } from '@/lib/notion';
 
+// Never cache — always fetch fresh data from Notion
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const url = request.nextUrl.searchParams.get('url');
