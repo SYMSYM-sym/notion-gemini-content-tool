@@ -84,7 +84,7 @@ function buildPhotoPrompt(
   aspectRatio: string,
   previousFeedback?: VerificationResult | null
 ): string {
-  let prompt = `Create a professional, high-quality Instagram photo for a women's health and wellness account (@herhealthinfo).
+  let prompt = `Create a professional, high-quality Instagram photo for a women's health and wellness account.
 
 Topic: ${entry.topic}
 Visual direction: ${entry.visualDescription}
@@ -96,7 +96,7 @@ Requirements:
 - Brand colors: Soft sage green and blush pink tones where appropriate
 - The photo should feel calming, empowering, and professional
 - Instagram-ready quality, no watermarks
-- Do NOT add text overlays unless the visual direction specifically mentions text`;
+- Do NOT add any text, handles, usernames, or watermarks on the image`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -106,7 +106,7 @@ function buildGraphicPrompt(
   aspectRatio: string,
   previousFeedback?: VerificationResult | null
 ): string {
-  let prompt = `Create a professional Instagram GRAPHIC/INFOGRAPHIC for a women's health and wellness account (@herhealthinfo).
+  let prompt = `Create a professional Instagram GRAPHIC/INFOGRAPHIC for a women's health and wellness account.
 
 Topic: ${entry.topic}
 Visual direction: ${entry.visualDescription}
@@ -119,7 +119,7 @@ Requirements:
 - Typography: Clean, modern, highly readable fonts
 - Layout: Well-organized with clear visual hierarchy
 - Instagram-ready, no watermarks
-- Include @herhealthinfo handle subtly on the design`;
+- Do NOT include any social media handles, usernames, or @mentions on the image`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -135,7 +135,7 @@ function buildCarouselPrompts(
     const isFirst = i === 0;
     const slideLabel = `Slide ${i + 1} of ${slides.length}`;
 
-    let prompt = `Create a professional Instagram carousel ${slideLabel} for a women's health and wellness account (@herhealthinfo).
+    let prompt = `Create a professional Instagram carousel ${slideLabel} for a women's health and wellness account.
 
 Topic: ${entry.topic}
 This slide's content: ${slideDesc}
@@ -148,7 +148,7 @@ Requirements:
 - Clean, modern, feminine wellness aesthetic
 - If text content is described, include it clearly and readably
 - Instagram-ready, no watermarks
-- Include @herhealthinfo handle subtly`;
+- Do NOT include any social media handles, usernames, or @mentions on the image`;
 
     return appendFeedback(prompt, previousFeedback);
   });
@@ -163,7 +163,7 @@ function buildVideoCoverPrompt(
   const isReel = entry.contentType.toLowerCase().includes('reel');
   const format = isReel ? 'Reel' : 'Video';
 
-  let prompt = `Create a professional Instagram ${format} COVER THUMBNAIL for a women's health and wellness account (@herhealthinfo).
+  let prompt = `Create a professional Instagram ${format} COVER THUMBNAIL for a women's health and wellness account.
 
 Topic: ${entry.topic}
 Video description: ${entry.visualDescription}
@@ -175,10 +175,9 @@ Requirements:
 - Show the key visual element from the video description as a still frame
 - Brand colors: Soft sage green and blush pink tones
 - Add a subtle play button overlay or cinematic feel to indicate this is for video
-- Include the topic as text overlay: "${entry.topic}"
 - Clean, modern, feminine wellness aesthetic
 - Instagram-ready, no watermarks
-- Include @herhealthinfo handle subtly`;
+- Do NOT include any social media handles, usernames, or @mentions on the image`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -187,7 +186,7 @@ function buildStoryPrompt(
   entry: NotionEntry,
   previousFeedback?: VerificationResult | null
 ): string {
-  let prompt = `Create a professional Instagram Story image for a women's health and wellness account (@herhealthinfo).
+  let prompt = `Create a professional Instagram Story image for a women's health and wellness account.
 
 Topic: ${entry.topic}
 Visual direction: ${entry.visualDescription}

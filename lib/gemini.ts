@@ -100,7 +100,7 @@ export async function generateVideo(
   const aspectRatio = getAspectRatio(entry.contentType);
   // Replace "overlay" with "audio dialogue" for video entries
   const visualDirection = entry.visualDescription.replace(/overlay/gi, 'audio dialogue');
-  const prompt = `Create a professional, high-quality short video with ambient sound for a women's health and wellness account (@herhealthinfo).
+  const prompt = `Create a professional, high-quality short video with ambient sound for a women's health and wellness account .
 
 Topic: ${entry.topic}
 Visual direction: ${visualDirection}
