@@ -100,16 +100,14 @@ export async function generateVideo(
   const aspectRatio = getAspectRatio(entry.contentType);
   // Replace "overlay" with "audio dialogue" for video entries
   const visualDirection = entry.visualDescription.replace(/overlay/gi, 'audio dialogue');
-  const prompt = `Create a professional, high-quality short video with ambient sound for a women's health and wellness account .
+  const prompt = `Create a professional, high-quality short video with ambient sound.
 
 Topic: ${entry.topic}
 Visual direction: ${visualDirection}
 
-Audio: Include calming ambient music or gentle background sounds appropriate to the scene. Any spoken dialogue should be brief and fit within 8 seconds.
-Style: Clean, modern, feminine wellness aesthetic. Calming, empowering, and professional.
-Brand colors: Soft sage green and blush pink tones.
-Smooth, gentle movements. High production quality.
-IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, or text overlays to the video. The video should be purely visual (with audio) and no text of any kind.`;
+Audio: Include appropriate ambient music or gentle background sounds for the scene. Any spoken dialogue should be brief and fit within 8 seconds.
+Style: Follow the visual direction above. Smooth, gentle movements. High production quality.
+IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, handles, or text overlays to the video. The video should be purely visual (with audio) and no text of any kind.`;
 
   // Start the long-running operation with Veo 3.0 Fast (includes audio)
   const startRes = await fetch(
