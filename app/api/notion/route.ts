@@ -20,7 +20,13 @@ export async function GET(request: NextRequest) {
     const databaseId = extractDatabaseId(notionUrl);
     const entries = await fetchNotionDatabase(databaseId);
 
-    return NextResponse.json({ entries, databaseId });
+    return NextResponse.json({ entries, databaseId }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'CDN-Cache-Control': 'no-store',
+        'Vercel-CDN-Cache-Control': 'no-store',
+      },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to fetch Notion data';
     return NextResponse.json({ error: message }, { status: 500 });

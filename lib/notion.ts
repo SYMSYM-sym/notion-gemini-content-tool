@@ -81,7 +81,7 @@ export async function fetchNotionDatabase(databaseId: string): Promise<NotionEnt
   // Strategy 2: notion-client
   try {
     const { NotionAPI } = await import('notion-client');
-    const notion = new NotionAPI();
+    const notion = new NotionAPI({ ofetchOptions: { cache: 'no-store' } });
     const page = await notion.getPage(databaseId);
     const collectionId = Object.keys(page.collection || {})[0];
     if (collectionId) {

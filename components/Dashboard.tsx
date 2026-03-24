@@ -29,7 +29,11 @@ export default function Dashboard() {
     // Reset all pipeline state so nothing carries over from a previous session
     pipeline.resetAll();
     try {
-      const res = await fetch(`/api/notion?url=${encodeURIComponent(url)}`);
+      // Cache-bust with timestamp to prevent browser and CDN caching
+      const res = await fetch(
+        `/api/notion?url=${encodeURIComponent(url)}&_t=${Date.now()}`,
+        { cache: 'no-store' }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const sorted = [...data.entries].sort((a: NotionEntry, b: NotionEntry) => (a.day ?? 999) - (b.day ?? 999));
@@ -39,7 +43,8 @@ export default function Dashboard() {
     } finally {
       setIsLoadingNotion(false);
     }
-  }, [pipeline]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredEntries = useMemo(() => {
     return entries.filter((e) => {
