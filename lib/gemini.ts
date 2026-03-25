@@ -98,16 +98,30 @@ export async function generateVideo(
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
 
   const aspectRatio = getAspectRatio(entry.contentType);
-  // Replace "overlay" with "audio dialogue" for video entries
-  const visualDirection = entry.visualDescription.replace(/overlay/gi, 'audio dialogue');
+  // Clean the visual description for video:
+  // 1. Replace "overlay" with "audio dialogue"
+  // 2. Strip any text/title/caption instructions that Veo would render on screen
+  let visualDirection = entry.visualDescription
+    .replace(/overlay/gi, 'audio dialogue')
+    .replace(/\btext\s*:\s*["']?[^"'\n.]+["']?/gi, '')        // "Text: 'Something'"
+    .replace(/\btitle\s*:\s*["']?[^"'\n.]+["']?/gi, '')        // "Title: 'Something'"
+    .replace(/\bcaption\s*:\s*["']?[^"'\n.]+["']?/gi, '')      // "Caption: 'Something'"
+    .replace(/["'][^"']{3,}["']/g, '')                          // Quoted text strings
+    .replace(/with\s+(?:the\s+)?text\b[^.;]*/gi, '')           // "with text ..."
+    .replace(/\s{2,}/g, ' ')
+    .trim();
   const prompt = `Create a professional, high-quality short video with ambient sound.
 
 Topic: ${entry.topic}
-Visual direction: ${visualDirection}
+Visual direction (VISUALS ONLY — do not render any text): ${visualDirection}
 
-Audio: Include appropriate ambient music or gentle background sounds for the scene. Any spoken dialogue should be brief and fit within 8 seconds.
+Audio: Include appropriate ambient music or gentle background sounds for the scene.
 Style: Follow the visual direction above. Smooth, gentle movements. High production quality.
-IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, handles, or text overlays to the video. The video should be purely visual (with audio) and no text of any kind.`;
+
+CRITICAL RULES:
+- ABSOLUTELY NO on-screen text of any kind. No titles, no captions, no labels, no quotes, no watermarks, no handles, no logos, no words.
+- The video must contain ZERO text. Only show visual scenes, people, objects, and environments.
+- If the visual direction mentions text or titles, IGNORE those parts and only create the visual scene described.`;
 
   // Try models in order: Veo 3 Fast (audio), Veo 2 (no audio but more quota)
   const models = [
