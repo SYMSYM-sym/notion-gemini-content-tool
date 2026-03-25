@@ -123,10 +123,12 @@ CRITICAL RULES:
 - The video must contain ZERO text. Only show visual scenes, people, objects, and environments.
 - If the visual direction mentions text or titles, IGNORE those parts and only create the visual scene described.`;
 
-  // Try models in order: Veo 3 Fast (audio), Veo 2 (no audio but more quota)
+  // Veo 3 Fast has very low limits (2 RPM, 10 RPD on Paid Tier 1)
+  // Use Veo 2 as primary — higher quota, still good quality
+  // Veo 3 Fast as fallback only if Veo 2 fails
   const models = [
-    { name: 'veo-3.0-fast-generate-001', duration: 8, label: 'Veo 3 Fast' },
     { name: 'veo-2.0-generate-001', duration: 8, label: 'Veo 2' },
+    { name: 'veo-3.0-fast-generate-001', duration: 8, label: 'Veo 3 Fast' },
   ];
 
   for (let mi = 0; mi < models.length; mi++) {
