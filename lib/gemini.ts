@@ -115,7 +115,15 @@ IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, handles,
     { name: 'veo-2.0-generate-001', duration: 8, label: 'Veo 2' },
   ];
 
-  for (const model of models) {
+  for (let mi = 0; mi < models.length; mi++) {
+    const model = models[mi];
+
+    // Wait 10 seconds before trying fallback model to avoid stacking rate limits
+    if (mi > 0) {
+      console.log(`Waiting 10s before trying ${model.label}...`);
+      await new Promise((r) => setTimeout(r, 10000));
+    }
+
     try {
       const startRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model.name}:predictLongRunning?key=${apiKey}`,
@@ -136,13 +144,14 @@ IMPORTANT: Do NOT add any on-screen text, titles, captions, watermarks, handles,
         const err = await startRes.json();
         const msg = err.error?.message || '';
         console.error(`${model.label} failed:`, msg);
-        // If rate limited or quota exceeded, try next model
+
+        // If rate limited or quota exceeded, wait then try next model
         if (msg.includes('quota') || msg.includes('rate') || msg.includes('429') || msg.includes('Too')) {
           continue;
         }
-        // For other errors (bad request), adjust and retry
-        if (msg.includes('durationSeconds') && model.duration === 8) {
-          // Retry with shorter duration
+        // Duration out of bounds — retry once with 5s
+        if (msg.includes('durationSeconds')) {
+          await new Promise((r) => setTimeout(r, 3000));
           const retryRes = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model.name}:predictLongRunning?key=${apiKey}`,
             {
