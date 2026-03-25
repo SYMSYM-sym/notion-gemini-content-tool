@@ -324,8 +324,8 @@ export function usePipeline() {
         // Rate limit cooldown — longer for videos due to Veo rate limits
         if (i < pendingEntries.length - 1 && runningRef.current && !pauseRef.current) {
           const isVideo = entry.contentType.toLowerCase().includes('video') || entry.contentType.toLowerCase().includes('reel');
-          const cooldown = isVideo ? 5000 : 2000;
-          addLog(`Cooling down (${cooldown / 1000}s)...`, 'info');
+          const cooldown = isVideo ? 15000 : 2000;
+          addLog(`Cooling down (${cooldown / 1000}s)${isVideo ? ' — video rate limit' : ''}...`, 'info');
           await delay(cooldown);
         }
       }
