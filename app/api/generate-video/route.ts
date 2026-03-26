@@ -15,9 +15,8 @@ export async function POST(request: NextRequest) {
 
     const { videoUrl, prompt } = await generateVideo(entry);
 
-    // Download the video and convert to base64 for blob upload
-    const apiKey = process.env.GEMINI_API_KEY;
-    const videoRes = await fetch(videoUrl.includes('key=') ? videoUrl : videoUrl + '&key=' + apiKey);
+    // Download the video from fal.ai and convert to base64
+    const videoRes = await fetch(videoUrl);
     if (!videoRes.ok) {
       throw new Error('Failed to download generated video');
     }
