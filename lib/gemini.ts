@@ -88,141 +88,59 @@ export async function generateImages(
 }
 
 /**
- * Generate a video. Tries Veo 3.0 Fast (has audio), falls back to Veo 2 (no audio).
- * Long-running operation that polls until complete.
+ * Generate a video using fal.ai LTX v2.3 (includes audio).
+ * Uses the @fal-ai/client SDK for queue management.
  */
 export async function generateVideo(
   entry: NotionEntry,
 ): Promise<{ videoUrl: string; prompt: string }> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
+  const falKey = process.env.FAL_KEY;
+  if (!falKey) throw new Error('FAL_KEY is not configured');
 
-  const aspectRatio = getAspectRatio(entry.contentType);
-  // Clean the visual description for video:
-  // 1. Replace "overlay" with "audio dialogue"
-  // 2. Strip any text/title/caption instructions that Veo would render on screen
-  let visualDirection = entry.visualDescription
+  // Dynamic import to avoid client-side bundling issues
+  const { fal } = await import('@fal-ai/client');
+  fal.config({ credentials: falKey });
+
+  const ct = entry.contentType.toLowerCase();
+  const aspectRatio = ct.includes('9:16') || ct.includes('reel') || ct.includes('video') ? '9:16' : '16:9';
+
+  // Clean the visual description for video
+  const visualDirection = entry.visualDescription
     .replace(/overlay/gi, 'audio dialogue')
-    .replace(/\btext\s*:\s*["']?[^"'\n.]+["']?/gi, '')        // "Text: 'Something'"
-    .replace(/\btitle\s*:\s*["']?[^"'\n.]+["']?/gi, '')        // "Title: 'Something'"
-    .replace(/\bcaption\s*:\s*["']?[^"'\n.]+["']?/gi, '')      // "Caption: 'Something'"
-    .replace(/["'][^"']{3,}["']/g, '')                          // Quoted text strings
-    .replace(/with\s+(?:the\s+)?text\b[^.;]*/gi, '')           // "with text ..."
+    .replace(/\btext\s*:\s*["']?[^"'\n.]+["']?/gi, '')
+    .replace(/\btitle\s*:\s*["']?[^"'\n.]+["']?/gi, '')
+    .replace(/\bcaption\s*:\s*["']?[^"'\n.]+["']?/gi, '')
+    .replace(/["'][^"']{3,}["']/g, '')
+    .replace(/with\s+(?:the\s+)?text\b[^.;]*/gi, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
-  const prompt = `Create a professional, high-quality short video with ambient sound.
+
+  const prompt = `Professional short video with ambient sound and music.
 
 Topic: ${entry.topic}
-Visual direction (VISUALS ONLY — do not render any text): ${visualDirection}
+Visual direction: ${visualDirection}
 
-Audio: Include appropriate ambient music or gentle background sounds for the scene.
-Style: Follow the visual direction above. Smooth, gentle movements. High production quality.
+Smooth, gentle camera movements. High production quality.
+Include ambient music or gentle background sounds.
+Do NOT show any on-screen text, titles, captions, watermarks, logos, or words. Purely visual scenes only.`;
 
-CRITICAL RULES:
-- ABSOLUTELY NO on-screen text of any kind. No titles, no captions, no labels, no quotes, no watermarks, no handles, no logos, no words.
-- The video must contain ZERO text. Only show visual scenes, people, objects, and environments.
-- If the visual direction mentions text or titles, IGNORE those parts and only create the visual scene described.`;
+  const result = await fal.subscribe('fal-ai/ltx-2.3/text-to-video', {
+    input: {
+      prompt,
+      duration: 8,
+      resolution: '1080p',
+      aspect_ratio: aspectRatio,
+      fps: 25,
+      generate_audio: true,
+    },
+  });
 
-  // Veo 3 Fast has very low limits (2 RPM, 10 RPD on Paid Tier 1)
-  // Use Veo 2 as primary — higher quota, still good quality
-  // Veo 3 Fast as fallback only if Veo 2 fails
-  const models = [
-    { name: 'veo-2.0-generate-001', duration: 8, label: 'Veo 2' },
-    { name: 'veo-3.0-fast-generate-001', duration: 8, label: 'Veo 3 Fast' },
-  ];
-
-  for (let mi = 0; mi < models.length; mi++) {
-    const model = models[mi];
-
-    // Wait 10 seconds before trying fallback model to avoid stacking rate limits
-    if (mi > 0) {
-      console.log(`Waiting 10s before trying ${model.label}...`);
-      await new Promise((r) => setTimeout(r, 10000));
-    }
-
-    try {
-      const startRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model.name}:predictLongRunning?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instances: [{ prompt }],
-            parameters: {
-              aspectRatio,
-              durationSeconds: model.duration,
-            },
-          }),
-        }
-      );
-
-      if (!startRes.ok) {
-        const err = await startRes.json();
-        const msg = err.error?.message || '';
-        console.error(`${model.label} failed:`, msg);
-
-        // If rate limited or quota exceeded, wait then try next model
-        if (msg.includes('quota') || msg.includes('rate') || msg.includes('429') || msg.includes('Too')) {
-          continue;
-        }
-        // Duration out of bounds — retry once with 5s
-        if (msg.includes('durationSeconds')) {
-          await new Promise((r) => setTimeout(r, 3000));
-          const retryRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model.name}:predictLongRunning?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                instances: [{ prompt }],
-                parameters: { aspectRatio, durationSeconds: 5 },
-              }),
-            }
-          );
-          if (!retryRes.ok) continue;
-          const retryData = await retryRes.json();
-          if (!retryData.name) continue;
-          const result = await pollVideoOperation(retryData.name, apiKey);
-          if (result) return { videoUrl: result, prompt };
-          continue;
-        }
-        continue;
-      }
-
-      const startData = await startRes.json();
-      if (!startData.name) continue;
-
-      console.log(`Video generation started with ${model.label}`);
-      const result = await pollVideoOperation(startData.name, apiKey);
-      if (result) return { videoUrl: result, prompt };
-    } catch (e) {
-      console.error(`${model.label} error:`, e);
-      continue;
-    }
+  const videoUrl = (result.data as { video?: { url?: string } })?.video?.url;
+  if (!videoUrl) {
+    throw new Error('Video generation completed but no video URL returned');
   }
 
-  throw new Error('Video generation failed — all models exhausted (may be rate limited, try again in a few minutes)');
-}
-
-async function pollVideoOperation(operationName: string, apiKey: string): Promise<string | null> {
-  // Poll for up to 3 minutes
-  for (let i = 0; i < 36; i++) {
-    await new Promise((r) => setTimeout(r, 5000));
-
-    const pollRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${apiKey}`
-    );
-    const pollData = await pollRes.json();
-
-    if (pollData.done) {
-      const samples = pollData.response?.generateVideoResponse?.generatedSamples;
-      if (samples && samples.length > 0 && samples[0].video?.uri) {
-        return samples[0].video.uri + '&key=' + apiKey;
-      }
-      return null;
-    }
-  }
-  return null;
+  return { videoUrl, prompt };
 }
 
 // Backward compat
