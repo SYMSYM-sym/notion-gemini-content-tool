@@ -39,7 +39,7 @@ export default function PreviewModal({
           {(() => {
             // Video content
             if (result?.isVideo) {
-              const videoSrc = result.blobUrl || (result.imageBase64 ? `data:video/mp4;base64,${result.imageBase64}` : null);
+              const videoSrc = result.blobUrl || result.videoUrl || (result.imageBase64 ? `data:video/mp4;base64,${result.imageBase64}` : null);
               if (videoSrc) {
                 return (
                   <video
@@ -116,7 +116,7 @@ export default function PreviewModal({
               <span className="font-medium">Type:</span> {entry.contentType}
               {(entry.contentType.toLowerCase().includes('video') || entry.contentType.toLowerCase().includes('reel')) && (
                 <span className="ml-2 inline-block px-2 py-0.5 text-xs font-medium rounded bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300">
-                  AI-generated video with audio (Veo 3)
+                  AI-generated video with audio (fal.ai LTX v2.3)
                 </span>
               )}
             </p>

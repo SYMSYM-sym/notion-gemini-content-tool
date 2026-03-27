@@ -64,7 +64,7 @@ export function usePipeline() {
   const processVideoEntry = async (entry: NotionEntry): Promise<PipelineResult> => {
     updateStatus(entry.id, 'generating');
     addLog(
-      `Day ${entry.day} - ${entry.topic}: Generating video with audio (Veo 3 — may take up to 3 minutes)...`,
+      `Day ${entry.day} - ${entry.topic}: Generating video with audio (fal.ai LTX v2.3 — may take up to 3 minutes)...`,
       'info',
       entry.id
     );
@@ -91,7 +91,6 @@ export function usePipeline() {
       const result: PipelineResult = {
         entryId: entry.id,
         status: 'passed',
-        imageBase64: data.videoBase64,
         videoUrl: data.videoUrl,
         isVideo: true,
         prompt: data.prompt,
@@ -321,7 +320,7 @@ export function usePipeline() {
         await processEntry(entry);
         setProcessed(i + 1);
 
-        // Rate limit cooldown — longer for videos due to Veo rate limits
+        // Rate limit cooldown — longer for videos
         if (i < pendingEntries.length - 1 && runningRef.current && !pauseRef.current) {
           const isVideo = entry.contentType.toLowerCase().includes('video') || entry.contentType.toLowerCase().includes('reel');
           const cooldown = isVideo ? 15000 : 2000;
@@ -372,7 +371,7 @@ export function usePipeline() {
   const manualApprove = useCallback(
     async (entryId: string, entry?: NotionEntry) => {
       const result = results.get(entryId);
-      if (!result?.imageBase64 && !result?.images?.length) return;
+      if (!result?.imageBase64 && !result?.images?.length && !result?.videoUrl) return;
 
       updateStatus(entryId, 'approved');
       addLog(`Approved: Day ${entry?.day || '?'} - ${entry?.topic || entryId}`, 'success', entryId);
@@ -380,14 +379,14 @@ export function usePipeline() {
       const entryData = entry || { id: entryId, day: null, topic: entryId } as NotionEntry;
       const blobUrls: string[] = [];
 
-      // Handle video upload
-      if (result.isVideo && result.imageBase64) {
+      // Handle video upload — prefer videoUrl (CDN) over base64
+      if (result.isVideo && (result.videoUrl || result.imageBase64)) {
         try {
           const res = await fetch('/api/approve', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              videoBase64: result.imageBase64,
+              ...(result.videoUrl ? { videoUrl: result.videoUrl } : { videoBase64: result.imageBase64 }),
               entry: entryData,
             }),
           });

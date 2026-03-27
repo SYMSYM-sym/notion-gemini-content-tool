@@ -15,17 +15,10 @@ export async function POST(request: NextRequest) {
 
     const { videoUrl, prompt } = await generateVideo(entry);
 
-    // Download the video from fal.ai and convert to base64
-    const videoRes = await fetch(videoUrl);
-    if (!videoRes.ok) {
-      throw new Error('Failed to download generated video');
-    }
-
-    const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
-    const videoBase64 = videoBuffer.toString('base64');
-
+    // Return the fal.ai CDN URL directly — don't download here to avoid
+    // Vercel's 4.5MB response limit (a 1080p video is 20-100MB).
+    // The approve route will stream from this URL to Vercel Blob.
     return NextResponse.json({
-      videoBase64,
       videoUrl,
       prompt,
       isVideo: true,

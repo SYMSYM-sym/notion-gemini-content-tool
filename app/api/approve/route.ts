@@ -11,14 +11,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'entry is required' }, { status: 400 });
     }
 
-    const isVideo = !!body.videoBase64;
-    const base64Data: string = body.videoBase64 || body.imageBase64;
+    const isVideo = !!(body.videoBase64 || body.videoUrl);
 
-    if (!base64Data) {
-      return NextResponse.json({ error: 'imageBase64 or videoBase64 is required' }, { status: 400 });
+    let buffer: Buffer;
+    if (body.videoUrl) {
+      // Stream directly from fal.ai CDN URL — avoids passing large base64 payloads
+      const videoRes = await fetch(body.videoUrl as string);
+      if (!videoRes.ok) throw new Error('Failed to fetch video from CDN');
+      buffer = Buffer.from(await videoRes.arrayBuffer());
+    } else {
+      const base64Data: string = body.videoBase64 || body.imageBase64;
+      if (!base64Data) {
+        return NextResponse.json({ error: 'imageBase64, videoBase64, or videoUrl is required' }, { status: 400 });
+      }
+      buffer = Buffer.from(base64Data, 'base64');
     }
-
-    const buffer = Buffer.from(base64Data, 'base64');
     const slideIndex: number | undefined = body.slideIndex;
     const day = entry.day || 'X';
     const platform = entry.platform || 'Instagram';
