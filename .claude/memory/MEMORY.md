@@ -1,0 +1,5 @@
+- [Project State & Full Context](project_state.md) — Complete architecture, decisions, deployment info, file structure, and current status
+- [User Preferences](user_preferences.md) — Autonomous execution, deploy-first, cost-conscious, Windows/VS Code
+- [No Hardcoded Brand Content](feedback_no_brand.md) — Prompts must be generic, no @herhealthinfo or brand colors
+- [Video Generation Rules](feedback_video_rules.md) — No on-screen text, overlay→audio dialogue, use fal.ai LTX v2.3
+- [API Keys & Service References](reference_apis.md) — Gemini, fal.ai, Vercel Blob, Notion scraping endpoints
