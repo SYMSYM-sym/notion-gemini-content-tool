@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { NotionEntry } from '@/lib/types';
 import { usePipeline } from '@/hooks/usePipeline';
+import { saveSession, SessionEntryRecord } from '@/lib/sessions';
 import NotionUrlInput from './NotionUrlInput';
 import FilterBar from './FilterBar';
 import PipelineControls from './PipelineControls';
@@ -10,6 +11,7 @@ import EntryTable from './EntryTable';
 import PipelineLog from './PipelineLog';
 import ReviewQueue from './ReviewQueue';
 import PreviewModal from './PreviewModal';
+import SessionsView from './SessionsView';
 
 export default function Dashboard() {
   const [entries, setEntries] = useState<NotionEntry[]>([]);
@@ -20,12 +22,49 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [selectedEntry, setSelectedEntry] = useState<NotionEntry | null>(null);
   const [showReview, setShowReview] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const sessionIdRef = useRef<string | null>(null);
+  const sessionCreatedAtRef = useRef<string>('');
+  const sessionUrlRef = useRef<string>('');
 
   const pipeline = usePipeline();
+
+  // Auto-save session to localStorage whenever statuses or results change
+  useEffect(() => {
+    if (!sessionIdRef.current || entries.length === 0) return;
+    const sessionEntries: SessionEntryRecord[] = entries.map((entry) => {
+      const status = pipeline.statuses.get(entry.id) || 'pending';
+      const result = pipeline.results.get(entry.id);
+      return {
+        id: entry.id,
+        day: entry.day,
+        topic: entry.topic,
+        contentType: entry.contentType,
+        platform: entry.platform,
+        status,
+        blobUrl: result?.blobUrl,
+        blobUrls: result?.blobUrls,
+        isVideo: result?.isVideo,
+        verificationScore: result?.verification?.score,
+      };
+    });
+    saveSession({
+      id: sessionIdRef.current,
+      createdAt: sessionCreatedAtRef.current,
+      notionUrl: sessionUrlRef.current,
+      entries: sessionEntries,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, pipeline.statuses, pipeline.results]);
 
   const loadNotion = useCallback(async (url: string) => {
     setIsLoadingNotion(true);
     setError(null);
+    // Create a new session record for this load
+    sessionIdRef.current = `session_${Date.now()}`;
+    sessionCreatedAtRef.current = new Date().toISOString();
+    sessionUrlRef.current = url;
     // Reset all pipeline state so nothing carries over from a previous session
     pipeline.resetAll();
     try {
@@ -114,9 +153,17 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Content Generator
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Content Generator
+            </h1>
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              {showHistory ? '← Generator' : 'History'}
+            </button>
+          </div>
           <div className="w-full sm:w-96">
             <NotionUrlInput
               onLoad={loadNotion}
@@ -126,13 +173,18 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {error && (
+        {/* Session History view */}
+        {showHistory && (
+          <SessionsView onClose={() => setShowHistory(false)} />
+        )}
+
+        {error && !showHistory && (
           <div className="p-3 text-sm text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400 rounded-lg">
             {error}
           </div>
         )}
 
-        {entries.length > 0 && (
+        {entries.length > 0 && !showHistory && (
           <>
             {/* Pipeline Controls */}
             <PipelineControls
