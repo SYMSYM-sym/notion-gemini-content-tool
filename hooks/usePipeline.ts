@@ -3,6 +3,32 @@
 import { useState, useCallback, useRef } from 'react';
 import { NotionEntry, EntryStatus, VerificationResult, PipelineResult, LogEntry } from '@/lib/types';
 
+const APPROVED_STORAGE_KEY = 'cg_approved';
+
+interface ApprovedRecord {
+  blobUrl?: string;
+  blobUrls?: string[];
+  isVideo?: boolean;
+}
+
+function loadApproved(): Map<string, ApprovedRecord> {
+  if (typeof window === 'undefined') return new Map();
+  try {
+    const raw = localStorage.getItem(APPROVED_STORAGE_KEY);
+    if (!raw) return new Map();
+    return new Map(Object.entries(JSON.parse(raw)));
+  } catch {
+    return new Map();
+  }
+}
+
+function saveApproved(map: Map<string, ApprovedRecord>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(APPROVED_STORAGE_KEY, JSON.stringify(Object.fromEntries(map)));
+  } catch {}
+}
+
 interface PipelineState {
   entries: NotionEntry[];
   statuses: Map<string, EntryStatus>;
@@ -398,12 +424,20 @@ export function usePipeline() {
           // Still marked as approved locally
         }
 
-        updateResult(entryId, {
+        const videoApproved: PipelineResult = {
           ...result,
           status: 'approved',
           blobUrl: blobUrls[0],
           blobUrls: blobUrls.length > 0 ? blobUrls : undefined,
-        });
+        };
+        updateResult(entryId, videoApproved);
+
+        // Persist to localStorage
+        if (blobUrls.length > 0) {
+          const approved = loadApproved();
+          approved.set(entryId, { blobUrl: blobUrls[0], blobUrls, isVideo: true });
+          saveApproved(approved);
+        }
         return;
       }
 
@@ -430,12 +464,20 @@ export function usePipeline() {
         }
       }
 
-      updateResult(entryId, {
+      const imageApproved: PipelineResult = {
         ...result,
         status: 'approved',
         blobUrl: blobUrls[0],
         blobUrls: blobUrls.length > 0 ? blobUrls : undefined,
-      });
+      };
+      updateResult(entryId, imageApproved);
+
+      // Persist to localStorage
+      if (blobUrls.length > 0) {
+        const approved = loadApproved();
+        approved.set(entryId, { blobUrl: blobUrls[0], blobUrls, isVideo: false });
+        saveApproved(approved);
+      }
     },
     [results, updateStatus, updateResult, addLog]
   );
@@ -447,6 +489,35 @@ export function usePipeline() {
     },
     [updateStatus, addLog]
   );
+
+  /** Restore previously approved entries from localStorage */
+  const restoreApproved = useCallback((entries: NotionEntry[]) => {
+    const approved = loadApproved();
+    if (approved.size === 0) return;
+
+    for (const entry of entries) {
+      const record = approved.get(entry.id);
+      if (record && record.blobUrl) {
+        setStatuses((prev) => {
+          const next = new Map(prev);
+          next.set(entry.id, 'approved');
+          return next;
+        });
+        setResults((prev) => {
+          const next = new Map(prev);
+          next.set(entry.id, {
+            entryId: entry.id,
+            status: 'approved',
+            blobUrl: record.blobUrl,
+            blobUrls: record.blobUrls,
+            isVideo: record.isVideo,
+            attempts: 1,
+          });
+          return next;
+        });
+      }
+    }
+  }, []);
 
   /** Clear all pipeline state — call when loading a new Notion database */
   const resetAll = useCallback(() => {
@@ -479,6 +550,7 @@ export function usePipeline() {
     resetAll,
     manualApprove,
     rejectEntry,
+    restoreApproved,
     updateStatus,
     addLog,
   } as const;

@@ -77,6 +77,8 @@ export default function Dashboard() {
       if (!res.ok) throw new Error(data.error);
       const sorted = [...data.entries].sort((a: NotionEntry, b: NotionEntry) => (a.day ?? 999) - (b.day ?? 999));
       setEntries(sorted);
+      // Restore any previously approved entries from localStorage
+      pipeline.restoreApproved(sorted);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load Notion data');
     } finally {
