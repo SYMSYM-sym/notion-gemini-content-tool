@@ -110,13 +110,17 @@ export async function generateVideo(
     ? dialogueMatches.map((m) => m.replace(/'/g, '').trim()).filter(Boolean)
     : [];
 
-  // Clean the visual description for video
+  // Clean the visual description for video — strip anything that could produce on-screen text
   const visualDirection = entry.visualDescription
     .replace(/overlay/gi, 'audio dialogue')
     .replace(/\btext\s*:\s*["']?[^"'\n.]+["']?/gi, '')
     .replace(/\btitle\s*:\s*["']?[^"'\n.]+["']?/gi, '')
     .replace(/\bcaption\s*:\s*["']?[^"'\n.]+["']?/gi, '')
+    .replace(/\bsubtitle\s*:\s*["']?[^"'\n.]+["']?/gi, '')
+    .replace(/\bheadline\s*:\s*["']?[^"'\n.]+["']?/gi, '')
     .replace(/with\s+(?:the\s+)?text\b[^.;]*/gi, '')
+    .replace(/text\s+overlay\b[^.;]*/gi, '')
+    .replace(/on[- ]?screen\s+text\b[^.;]*/gi, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 
@@ -133,7 +137,9 @@ ${spokenDialogue.map((d, i) => `${i + 1}. "${d}"`).join('\n')}
 CRITICAL: Every line of dialogue above MUST be spoken in full. Pace the speech so all dialogue fits within the ${duration}-second video. Do NOT rush, skip, or truncate any words. Do NOT add any other narration or voiceover beyond these lines.`
     : '\nNo spoken dialogue — ambient sounds and music only.';
 
-  const prompt = `Professional short video with ambient sound and music.
+  const prompt = `ABSOLUTE RULE: NO TEXT ON SCREEN. Zero text overlays, zero titles, zero captions, zero subtitles, zero watermarks, zero logos, zero words of any kind visible in the video. The video must be purely visual with no readable characters anywhere.
+
+Professional short video with ambient sound and music.
 
 Topic: ${entry.topic}
 Visual direction: ${visualDirection}
@@ -142,7 +148,7 @@ ${dialogueInstruction}
 Smooth, gentle camera movements. High production quality.
 Include ambient music or gentle background sounds.
 When depicting people, feature WOMEN — this content is for a female-focused audience.
-Do NOT show any on-screen text, titles, captions, watermarks, logos, or words. Purely visual scenes only.`;
+REMINDER: Absolutely NO on-screen text, titles, subtitles, captions, labels, watermarks, logos, or any visible words. Dialogue is AUDIO ONLY.`;
 
   let result;
   try {
