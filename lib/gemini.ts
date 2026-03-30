@@ -124,16 +124,25 @@ Smooth, gentle camera movements. High production quality.
 Include ambient music or gentle background sounds.
 Do NOT show any on-screen text, titles, captions, watermarks, logos, or words. Purely visual scenes only.`;
 
-  const result = await fal.subscribe('fal-ai/ltx-2.3/text-to-video', {
-    input: {
-      prompt,
-      duration: 8,
-      resolution: '1080p',
-      aspect_ratio: aspectRatio,
-      fps: 25,
-      generate_audio: true,
-    },
-  });
+  let result;
+  try {
+    result = await fal.subscribe('fal-ai/ltx-2.3/text-to-video', {
+      input: {
+        prompt,
+        duration: 8,
+        resolution: '1080p',
+        aspect_ratio: aspectRatio,
+        fps: 25,
+        generate_audio: true,
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('Forbidden') || msg.includes('401') || msg.includes('403')) {
+      throw new Error('FAL_KEY is invalid or expired — generate a new key at fal.ai/dashboard/keys and update it in Vercel env vars');
+    }
+    throw new Error(`fal.ai error: ${msg}`);
+  }
 
   const videoUrl = (result.data as { video?: { url?: string } })?.video?.url;
   if (!videoUrl) {
