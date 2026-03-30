@@ -42,6 +42,15 @@ export default function EntryRow({
           </span>
         )}
       </td>
+      <td className="px-4 py-3">
+        <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
+          entry.platform.toLowerCase().includes('tiktok')
+            ? 'bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300'
+            : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+        }`}>
+          {entry.platform.toLowerCase().includes('tiktok') ? 'TikTok' : 'Instagram'}
+        </span>
+      </td>
       <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
         {entry.topic}
       </td>
