@@ -120,9 +120,17 @@ export async function generateVideo(
     .replace(/\s{2,}/g, ' ')
     .trim();
 
+  // Calculate duration based on dialogue word count (~2.5 words/sec + 2s buffer)
+  // fal.ai LTX v2.3 accepts: 6, 8, 10, 12, 14, 16, 18, 20
+  const totalDialogueWords = spokenDialogue.reduce((sum, d) => sum + d.split(/\s+/).length, 0);
+  const neededSeconds = totalDialogueWords > 0 ? Math.ceil(totalDialogueWords / 2.5) + 3 : 8;
+  const allowedDurations = [6, 8, 10, 12, 14, 16, 18, 20];
+  const duration = allowedDurations.find((d) => d >= neededSeconds) ?? 20;
+
   const dialogueInstruction = spokenDialogue.length > 0
-    ? `\nSPOKEN DIALOGUE (a female voice must say ONLY these exact lines, nothing else):
-${spokenDialogue.map((d, i) => `${i + 1}. "${d}"`).join('\n')}\nDo NOT add any other narration, voiceover, or spoken words beyond the dialogue listed above.`
+    ? `\nSPOKEN DIALOGUE (a female voice must say ALL of these lines completely, do not cut off mid-sentence):
+${spokenDialogue.map((d, i) => `${i + 1}. "${d}"`).join('\n')}
+CRITICAL: Every line of dialogue above MUST be spoken in full. Pace the speech so all dialogue fits within the ${duration}-second video. Do NOT rush, skip, or truncate any words. Do NOT add any other narration or voiceover beyond these lines.`
     : '\nNo spoken dialogue — ambient sounds and music only.';
 
   const prompt = `Professional short video with ambient sound and music.
@@ -141,7 +149,7 @@ Do NOT show any on-screen text, titles, captions, watermarks, logos, or words. P
     result = await fal.subscribe('fal-ai/ltx-2.3/text-to-video', {
       input: {
         prompt,
-        duration: 8,
+        duration,
         resolution: '1080p',
         aspect_ratio: aspectRatio,
         fps: 25,
