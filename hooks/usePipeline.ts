@@ -419,23 +419,28 @@ export function usePipeline() {
           if (res.ok) {
             const data = await res.json();
             blobUrls.push(data.url);
+          } else {
+            addLog(`Day ${entry?.day || '?'} - ${entry?.topic || entryId}: Blob upload failed (${res.status}), using CDN URL`, 'warning', entryId);
           }
-        } catch {
-          // Still marked as approved locally
+        } catch (err) {
+          addLog(`Day ${entry?.day || '?'} - ${entry?.topic || entryId}: Blob upload error, using CDN URL`, 'warning', entryId);
         }
 
-        const videoApproved: PipelineResult = {
+        // Use blob URL if available, otherwise fall back to CDN URL
+        const finalUrl = blobUrls[0] || result.videoUrl;
+        const finalUrls = blobUrls.length > 0 ? blobUrls : (result.videoUrl ? [result.videoUrl] : []);
+
+        updateResult(entryId, {
           ...result,
           status: 'approved',
-          blobUrl: blobUrls[0],
-          blobUrls: blobUrls.length > 0 ? blobUrls : undefined,
-        };
-        updateResult(entryId, videoApproved);
+          blobUrl: finalUrl,
+          blobUrls: finalUrls.length > 0 ? finalUrls : undefined,
+        });
 
-        // Persist to localStorage
-        if (blobUrls.length > 0) {
+        // Always persist — use whatever URL we have
+        if (finalUrl) {
           const approved = loadApproved();
-          approved.set(entryId, { blobUrl: blobUrls[0], blobUrls, isVideo: true });
+          approved.set(entryId, { blobUrl: finalUrl, blobUrls: finalUrls, isVideo: true });
           saveApproved(approved);
         }
         return;
@@ -458,24 +463,30 @@ export function usePipeline() {
           if (res.ok) {
             const data = await res.json();
             blobUrls.push(data.url);
+          } else {
+            addLog(`Day ${entry?.day || '?'} - Slide ${i + 1} blob upload failed (${res.status})`, 'warning', entryId);
           }
         } catch {
-          // Continue with remaining
+          addLog(`Day ${entry?.day || '?'} - Slide ${i + 1} blob upload error`, 'warning', entryId);
         }
       }
 
-      const imageApproved: PipelineResult = {
+      updateResult(entryId, {
         ...result,
         status: 'approved',
         blobUrl: blobUrls[0],
         blobUrls: blobUrls.length > 0 ? blobUrls : undefined,
-      };
-      updateResult(entryId, imageApproved);
+      });
 
-      // Persist to localStorage
+      // Always persist if we got any blob URLs
       if (blobUrls.length > 0) {
         const approved = loadApproved();
         approved.set(entryId, { blobUrl: blobUrls[0], blobUrls, isVideo: false });
+        saveApproved(approved);
+      } else {
+        // Even without blob URLs, mark as approved so it doesn't re-run
+        const approved = loadApproved();
+        approved.set(entryId, { isVideo: false });
         saveApproved(approved);
       }
     },
@@ -495,9 +506,10 @@ export function usePipeline() {
     const approved = loadApproved();
     if (approved.size === 0) return;
 
+    let restoredCount = 0;
     for (const entry of entries) {
       const record = approved.get(entry.id);
-      if (record && record.blobUrl) {
+      if (record) {
         setStatuses((prev) => {
           const next = new Map(prev);
           next.set(entry.id, 'approved');
@@ -515,7 +527,15 @@ export function usePipeline() {
           });
           return next;
         });
+        restoredCount++;
       }
+    }
+    if (restoredCount > 0) {
+      setLog((prev) => [...prev, {
+        timestamp: new Date(),
+        message: `Restored ${restoredCount} previously approved entries`,
+        type: 'success' as const,
+      }]);
     }
   }, []);
 
