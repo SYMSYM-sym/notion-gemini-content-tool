@@ -94,15 +94,17 @@ export default function EntryRow({
             Approve
           </button>
         )}
-        {(status === 'approved' || status === 'needs_review') && result?.blobUrl && (
-          <a
-            href={result.blobUrl}
-            download
-            onClick={(e) => e.stopPropagation()}
+        {(status === 'passed' || status === 'approved' || status === 'needs_review' || status === 'failed') &&
+          (result?.blobUrl || result?.imageBase64 || result?.images?.length || result?.videoUrl) && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
             className="px-3 py-1 text-xs font-medium text-sage-700 bg-sage-100 rounded hover:bg-sage-200 dark:text-sage-300 dark:bg-sage-800 dark:hover:bg-sage-700 transition-colors"
           >
             Download
-          </a>
+          </button>
         )}
       </td>
     </tr>

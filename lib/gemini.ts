@@ -104,24 +104,36 @@ export async function generateVideo(
   const ct = entry.contentType.toLowerCase();
   const aspectRatio = ct.includes('9:16') || ct.includes('reel') || ct.includes('video') ? '9:16' : '16:9';
 
+  // Extract spoken dialogue from single quotes in the visual description
+  const dialogueMatches = entry.visualDescription.match(/'([^']+)'/g);
+  const spokenDialogue = dialogueMatches
+    ? dialogueMatches.map((m) => m.replace(/'/g, '').trim()).filter(Boolean)
+    : [];
+
   // Clean the visual description for video
   const visualDirection = entry.visualDescription
     .replace(/overlay/gi, 'audio dialogue')
     .replace(/\btext\s*:\s*["']?[^"'\n.]+["']?/gi, '')
     .replace(/\btitle\s*:\s*["']?[^"'\n.]+["']?/gi, '')
     .replace(/\bcaption\s*:\s*["']?[^"'\n.]+["']?/gi, '')
-    .replace(/["'][^"']{3,}["']/g, '')
     .replace(/with\s+(?:the\s+)?text\b[^.;]*/gi, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
+
+  const dialogueInstruction = spokenDialogue.length > 0
+    ? `\nSPOKEN DIALOGUE (a female voice must say ONLY these exact lines, nothing else):
+${spokenDialogue.map((d, i) => `${i + 1}. "${d}"`).join('\n')}\nDo NOT add any other narration, voiceover, or spoken words beyond the dialogue listed above.`
+    : '\nNo spoken dialogue — ambient sounds and music only.';
 
   const prompt = `Professional short video with ambient sound and music.
 
 Topic: ${entry.topic}
 Visual direction: ${visualDirection}
+${dialogueInstruction}
 
 Smooth, gentle camera movements. High production quality.
 Include ambient music or gentle background sounds.
+When depicting people, feature WOMEN — this content is for a female-focused audience.
 Do NOT show any on-screen text, titles, captions, watermarks, logos, or words. Purely visual scenes only.`;
 
   let result;

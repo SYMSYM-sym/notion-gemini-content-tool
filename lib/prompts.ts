@@ -92,6 +92,7 @@ Requirements:
 - Aspect ratio: ${aspectRatio}
 - Follow the visual direction exactly as described above
 - Instagram-ready quality
+- When depicting people, feature WOMEN — this content is for a female-focused audience
 - Do NOT add any text, handles, usernames, or watermarks on the image`;
 
   return appendFeedback(prompt, previousFeedback);
@@ -113,6 +114,7 @@ Requirements:
 - Aspect ratio: ${aspectRatio}
 - Typography: Clean, modern, highly readable fonts
 - Layout: Well-organized with clear visual hierarchy
+- When depicting people or illustrations, feature WOMEN — this content is for a female-focused audience
 - Instagram-ready, no watermarks
 - Do NOT include any social media handles, usernames, or @mentions on the image`;
 
@@ -140,6 +142,7 @@ Requirements:
 - Aspect ratio: ${aspectRatio} (4:5 portrait format)
 - Maintain consistent styling across all slides in this carousel
 - If text content is described, include it clearly and readably
+- When depicting people, feature WOMEN — this content is for a female-focused audience
 - Instagram-ready, no watermarks
 - Do NOT include any social media handles, usernames, or @mentions on the image`;
 
@@ -166,6 +169,7 @@ Requirements:
 - Aspect ratio: ${aspectRatio}
 - Show the key visual element from the video description as a still frame
 - Add a subtle cinematic feel to indicate this is for video
+- When depicting people, feature WOMEN — this content is for a female-focused audience
 - Instagram-ready, no watermarks
 - Do NOT include any social media handles, usernames, or @mentions on the image`;
 
@@ -186,6 +190,7 @@ Requirements:
 - Make it interactive-feeling (leave space for poll/question stickers if mentioned)
 - Bold, attention-grabbing
 - If a poll or question is mentioned in the visual direction, include placeholder text for it
+- When depicting people, feature WOMEN — this content is for a female-focused audience
 - Instagram-ready, no watermarks
 - Do NOT include any social media handles, usernames, or @mentions on the image`;
 

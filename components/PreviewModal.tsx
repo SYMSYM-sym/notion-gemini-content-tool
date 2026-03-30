@@ -146,11 +146,11 @@ export default function PreviewModal({
         </div>
 
         <div className="flex flex-wrap gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
-          {(result?.blobUrls || result?.blobUrl || result?.imageBase64 || result?.images) && (
+          {(result?.blobUrls || result?.blobUrl || result?.imageBase64 || result?.images || result?.videoUrl) && (
             <button
               onClick={async () => {
                 const b64s = result?.images || (result?.imageBase64 ? [result.imageBase64] : []);
-                const urls = result?.blobUrls || (result?.blobUrl ? [result.blobUrl] : []);
+                const urls = result?.blobUrls || (result?.blobUrl ? [result.blobUrl] : (result?.videoUrl ? [result.videoUrl] : []));
 
                 for (let i = 0; i < Math.max(b64s.length, urls.length); i++) {
                   const ext = result?.isVideo ? 'mp4' : 'png';
