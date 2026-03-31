@@ -87,6 +87,17 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-load the default Notion URL on mount so approved entries restore immediately
+  const autoLoaded = useRef(false);
+  useEffect(() => {
+    if (autoLoaded.current) return;
+    const defaultUrl = process.env.NEXT_PUBLIC_DEFAULT_NOTION_URL;
+    if (defaultUrl) {
+      autoLoaded.current = true;
+      loadNotion(defaultUrl);
+    }
+  }, [loadNotion]);
+
   const filteredEntries = useMemo(() => {
     return entries.filter((e) => {
       if (platform !== 'All' && e.platform.toLowerCase() !== platform.toLowerCase())
