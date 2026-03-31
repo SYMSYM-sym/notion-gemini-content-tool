@@ -11,6 +11,11 @@ interface ApprovedRecord {
   isVideo?: boolean;
 }
 
+/** Stable key for an entry that survives ID changes between Notion reloads */
+function stableKey(entry: { day?: number | null; contentType?: string; topic?: string }): string {
+  return `d${entry.day ?? 'X'}_${(entry.contentType || '').toLowerCase().replace(/\s+/g, '')}_${(entry.topic || '').toLowerCase().replace(/\s+/g, '')}`;
+}
+
 function loadApproved(): Map<string, ApprovedRecord> {
   if (typeof window === 'undefined') return new Map();
   try {
@@ -438,9 +443,9 @@ export function usePipeline() {
         });
 
         // Always persist — use whatever URL we have
-        if (finalUrl) {
+        if (finalUrl && entry) {
           const approved = loadApproved();
-          approved.set(entryId, { blobUrl: finalUrl, blobUrls: finalUrls, isVideo: true });
+          approved.set(stableKey(entry), { blobUrl: finalUrl, blobUrls: finalUrls, isVideo: true });
           saveApproved(approved);
         }
         return;
@@ -478,15 +483,15 @@ export function usePipeline() {
         blobUrls: blobUrls.length > 0 ? blobUrls : undefined,
       });
 
-      // Always persist if we got any blob URLs
-      if (blobUrls.length > 0) {
+      // Always persist approval
+      if (entry) {
         const approved = loadApproved();
-        approved.set(entryId, { blobUrl: blobUrls[0], blobUrls, isVideo: false });
-        saveApproved(approved);
-      } else {
-        // Even without blob URLs, mark as approved so it doesn't re-run
-        const approved = loadApproved();
-        approved.set(entryId, { isVideo: false });
+        const key = stableKey(entry);
+        if (blobUrls.length > 0) {
+          approved.set(key, { blobUrl: blobUrls[0], blobUrls, isVideo: false });
+        } else {
+          approved.set(key, { isVideo: false });
+        }
         saveApproved(approved);
       }
     },
@@ -508,7 +513,8 @@ export function usePipeline() {
 
     let restoredCount = 0;
     for (const entry of entries) {
-      const record = approved.get(entry.id);
+      const key = stableKey(entry);
+      const record = approved.get(key);
       if (record) {
         setStatuses((prev) => {
           const next = new Map(prev);
