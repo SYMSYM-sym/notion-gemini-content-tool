@@ -49,3 +49,9 @@ export interface LogEntry {
   entryId?: string;
   type: 'info' | 'success' | 'warning' | 'error';
 }
+
+export interface ApprovedRecord {
+  blobUrl?: string;
+  blobUrls?: string[];
+  isVideo?: boolean;
+}

@@ -1,37 +1,11 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { NotionEntry, EntryStatus, VerificationResult, PipelineResult, LogEntry } from '@/lib/types';
-
-const APPROVED_STORAGE_KEY = 'cg_approved';
-
-interface ApprovedRecord {
-  blobUrl?: string;
-  blobUrls?: string[];
-  isVideo?: boolean;
-}
+import { NotionEntry, EntryStatus, VerificationResult, PipelineResult, LogEntry, ApprovedRecord } from '@/lib/types';
 
 /** Stable key for an entry that survives ID changes between Notion reloads */
-function stableKey(entry: { day?: number | null; contentType?: string; topic?: string }): string {
+export function stableKey(entry: { day?: number | null; contentType?: string; topic?: string }): string {
   return `d${entry.day ?? 'X'}_${(entry.contentType || '').toLowerCase().replace(/\s+/g, '')}_${(entry.topic || '').toLowerCase().replace(/\s+/g, '')}`;
-}
-
-function loadApproved(): Map<string, ApprovedRecord> {
-  if (typeof window === 'undefined') return new Map();
-  try {
-    const raw = localStorage.getItem(APPROVED_STORAGE_KEY);
-    if (!raw) return new Map();
-    return new Map(Object.entries(JSON.parse(raw)));
-  } catch {
-    return new Map();
-  }
-}
-
-function saveApproved(map: Map<string, ApprovedRecord>): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(APPROVED_STORAGE_KEY, JSON.stringify(Object.fromEntries(map)));
-  } catch {}
 }
 
 interface PipelineState {
@@ -408,6 +382,7 @@ export function usePipeline() {
       addLog(`Approved: Day ${entry?.day || '?'} - ${entry?.topic || entryId}`, 'success', entryId);
 
       const entryData = entry || { id: entryId, day: null, topic: entryId } as NotionEntry;
+      const entryKey = entry ? stableKey(entry) : undefined;
       const blobUrls: string[] = [];
 
       // Handle video upload — prefer videoUrl (CDN) over base64
@@ -419,6 +394,7 @@ export function usePipeline() {
             body: JSON.stringify({
               ...(result.videoUrl ? { videoUrl: result.videoUrl } : { videoBase64: result.imageBase64 }),
               entry: entryData,
+              stableKey: entryKey,
             }),
           });
           if (res.ok) {
@@ -427,11 +403,10 @@ export function usePipeline() {
           } else {
             addLog(`Day ${entry?.day || '?'} - ${entry?.topic || entryId}: Blob upload failed (${res.status}), using CDN URL`, 'warning', entryId);
           }
-        } catch (err) {
+        } catch {
           addLog(`Day ${entry?.day || '?'} - ${entry?.topic || entryId}: Blob upload error, using CDN URL`, 'warning', entryId);
         }
 
-        // Use blob URL if available, otherwise fall back to CDN URL
         const finalUrl = blobUrls[0] || result.videoUrl;
         const finalUrls = blobUrls.length > 0 ? blobUrls : (result.videoUrl ? [result.videoUrl] : []);
 
@@ -442,16 +417,21 @@ export function usePipeline() {
           blobUrls: finalUrls.length > 0 ? finalUrls : undefined,
         });
 
-        // Always persist — use whatever URL we have
-        if (finalUrl && entry) {
-          const approved = loadApproved();
-          approved.set(stableKey(entry), { blobUrl: finalUrl, blobUrls: finalUrls, isVideo: true });
-          saveApproved(approved);
+        // If blob upload failed but we have a CDN URL, persist to manifest directly
+        if (blobUrls.length === 0 && finalUrl && entryKey) {
+          fetch('/api/manifest/approved').then(r => r.json()).then((manifest: Record<string, ApprovedRecord>) => {
+            manifest[entryKey] = { blobUrl: finalUrl, blobUrls: finalUrls, isVideo: true };
+            fetch('/api/manifest/approved', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ data: manifest }),
+            }).catch(() => {});
+          }).catch(() => {});
         }
         return;
       }
 
-      // Upload all images to blob
+      // Upload all images to blob (stableKey passed — server persists to manifest)
       const allImages = result.images || (result.imageBase64 ? [result.imageBase64] : []);
 
       for (let i = 0; i < allImages.length; i++) {
@@ -463,6 +443,7 @@ export function usePipeline() {
               imageBase64: allImages[i],
               entry: entryData,
               slideIndex: allImages.length > 1 ? i : undefined,
+              stableKey: entryKey,
             }),
           });
           if (res.ok) {
@@ -482,18 +463,6 @@ export function usePipeline() {
         blobUrl: blobUrls[0],
         blobUrls: blobUrls.length > 0 ? blobUrls : undefined,
       });
-
-      // Always persist approval
-      if (entry) {
-        const approved = loadApproved();
-        const key = stableKey(entry);
-        if (blobUrls.length > 0) {
-          approved.set(key, { blobUrl: blobUrls[0], blobUrls, isVideo: false });
-        } else {
-          approved.set(key, { isVideo: false });
-        }
-        saveApproved(approved);
-      }
     },
     [results, updateStatus, updateResult, addLog]
   );
@@ -508,9 +477,9 @@ export function usePipeline() {
 
   /**
    * Reset pipeline AND restore previously approved entries in a single batch.
-   * This prevents the race where resetAll() wipes state that restoreApproved() just set.
+   * approvedData comes from the server-side manifest (Vercel Blob), not localStorage.
    */
-  const resetAndRestore = useCallback((entries: NotionEntry[]) => {
+  const resetAndRestore = useCallback((entries: NotionEntry[], approvedData: Record<string, ApprovedRecord>) => {
     runningRef.current = false;
     pauseRef.current = false;
     setIsRunning(false);
@@ -519,16 +488,13 @@ export function usePipeline() {
     setProcessed(0);
     setTotal(0);
 
-    const approved = loadApproved();
-
-    // Build new statuses and results maps with approved entries pre-populated
     const newStatuses = new Map<string, EntryStatus>();
     const newResults = new Map<string, PipelineResult>();
     let restoredCount = 0;
 
     for (const entry of entries) {
       const key = stableKey(entry);
-      const record = approved.get(key);
+      const record = approvedData[key];
       if (record) {
         newStatuses.set(entry.id, 'approved');
         newResults.set(entry.id, {
@@ -543,7 +509,6 @@ export function usePipeline() {
       }
     }
 
-    // Set all state at once — no race condition
     setStatuses(newStatuses);
     setResults(newResults);
 

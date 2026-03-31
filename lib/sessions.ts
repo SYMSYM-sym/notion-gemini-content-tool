@@ -20,47 +20,21 @@ export interface Session {
   entries: SessionEntryRecord[];
 }
 
-const STORAGE_KEY = 'cg_sessions';
-const MAX_SESSIONS = 30;
-
-function read(): Session[] {
-  if (typeof window === 'undefined') return [];
+export async function loadSessions(): Promise<Session[]> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Session[]) : [];
+    const res = await fetch('/api/manifest/sessions', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const sessions: Session[] = await res.json();
+    return sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   } catch {
     return [];
   }
 }
 
-function write(sessions: Session[]): void {
-  if (typeof window === 'undefined') return;
+export async function deleteSession(id: string): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-  } catch {
-    // Storage full — trim aggressively and retry
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 10)));
-    } catch {}
-  }
-}
-
-export function loadSessions(): Session[] {
-  return read().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
-
-export function saveSession(session: Session): void {
-  const all = read();
-  const idx = all.findIndex((s) => s.id === session.id);
-  if (idx >= 0) {
-    all[idx] = session;
-  } else {
-    all.unshift(session);
-    if (all.length > MAX_SESSIONS) all.splice(MAX_SESSIONS);
-  }
-  write(all);
-}
-
-export function deleteSession(id: string): void {
-  write(read().filter((s) => s.id !== id));
+    await fetch(`/api/manifest/sessions?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  } catch {}
 }

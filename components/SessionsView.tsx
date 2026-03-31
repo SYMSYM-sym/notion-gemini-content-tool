@@ -42,12 +42,17 @@ export default function SessionsView({ onClose }: { onClose: () => void }) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    setSessions(loadSessions());
+    loadSessions().then((s) => {
+      setSessions(s);
+      setLoading(false);
+    });
   }, []);
 
-  const handleDelete = (id: string) => {
-    deleteSession(id);
+  const handleDelete = async (id: string) => {
+    await deleteSession(id);
     setSessions((prev) => prev.filter((s) => s.id !== id));
     if (expandedId === id) setExpandedId(null);
   };
@@ -64,7 +69,13 @@ export default function SessionsView({ onClose }: { onClose: () => void }) {
         </button>
       </div>
 
-      {sessions.length === 0 && (
+      {loading && (
+        <div className="text-center py-20 text-gray-400 dark:text-gray-500">
+          <p className="text-sm">Loading sessions...</p>
+        </div>
+      )}
+
+      {!loading && sessions.length === 0 && (
         <div className="text-center py-20 text-gray-400 dark:text-gray-500">
           <p className="text-lg font-medium">No sessions recorded yet</p>
           <p className="text-sm mt-1">

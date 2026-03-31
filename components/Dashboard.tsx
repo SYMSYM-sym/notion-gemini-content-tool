@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { NotionEntry } from '@/lib/types';
+import { NotionEntry, ApprovedRecord } from '@/lib/types';
 import { usePipeline } from '@/hooks/usePipeline';
-import { saveSession, SessionEntryRecord } from '@/lib/sessions';
+import { SessionEntryRecord } from '@/lib/sessions';
 import NotionUrlInput from './NotionUrlInput';
 import FilterBar from './FilterBar';
 import PipelineControls from './PipelineControls';
@@ -30,31 +30,42 @@ export default function Dashboard() {
 
   const pipeline = usePipeline();
 
-  // Auto-save session to localStorage whenever statuses or results change
+  // Auto-save session to server whenever statuses or results change (debounced)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!sessionIdRef.current || entries.length === 0) return;
-    const sessionEntries: SessionEntryRecord[] = entries.map((entry) => {
-      const status = pipeline.statuses.get(entry.id) || 'pending';
-      const result = pipeline.results.get(entry.id);
-      return {
-        id: entry.id,
-        day: entry.day,
-        topic: entry.topic,
-        contentType: entry.contentType,
-        platform: entry.platform,
-        status,
-        blobUrl: result?.blobUrl,
-        blobUrls: result?.blobUrls,
-        isVideo: result?.isVideo,
-        verificationScore: result?.verification?.score,
-      };
-    });
-    saveSession({
-      id: sessionIdRef.current,
-      createdAt: sessionCreatedAtRef.current,
-      notionUrl: sessionUrlRef.current,
-      entries: sessionEntries,
-    });
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const sessionEntries: SessionEntryRecord[] = entries.map((entry) => {
+        const status = pipeline.statuses.get(entry.id) || 'pending';
+        const result = pipeline.results.get(entry.id);
+        return {
+          id: entry.id,
+          day: entry.day,
+          topic: entry.topic,
+          contentType: entry.contentType,
+          platform: entry.platform,
+          status,
+          blobUrl: result?.blobUrl,
+          blobUrls: result?.blobUrls,
+          isVideo: result?.isVideo,
+          verificationScore: result?.verification?.score,
+        };
+      });
+      fetch('/api/manifest/sessions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session: {
+            id: sessionIdRef.current,
+            createdAt: sessionCreatedAtRef.current,
+            notionUrl: sessionUrlRef.current,
+            entries: sessionEntries,
+          },
+        }),
+      }).catch(() => {});
+    }, 2000);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, pipeline.statuses, pipeline.results]);
 
@@ -66,17 +77,18 @@ export default function Dashboard() {
     sessionCreatedAtRef.current = new Date().toISOString();
     sessionUrlRef.current = url;
     try {
-      // Cache-bust with timestamp to prevent browser and CDN caching
-      const res = await fetch(
-        `/api/notion?url=${encodeURIComponent(url)}&_t=${Date.now()}`,
-        { cache: 'no-store' }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      // Fetch Notion entries and approved manifest in parallel
+      const [notionRes, approvedRes] = await Promise.all([
+        fetch(`/api/notion?url=${encodeURIComponent(url)}&_t=${Date.now()}`, { cache: 'no-store' }),
+        fetch('/api/manifest/approved', { cache: 'no-store' }),
+      ]);
+      const data = await notionRes.json();
+      if (!notionRes.ok) throw new Error(data.error);
+      const approvedData: Record<string, ApprovedRecord> = approvedRes.ok ? await approvedRes.json() : {};
       const sorted = [...data.entries].sort((a: NotionEntry, b: NotionEntry) => (a.day ?? 999) - (b.day ?? 999));
       setEntries(sorted);
       // Reset pipeline state AND restore approved entries in one atomic operation
-      pipeline.resetAndRestore(sorted);
+      pipeline.resetAndRestore(sorted, approvedData);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load Notion data');
     } finally {

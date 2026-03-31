@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { NotionEntry } from '@/lib/types';
+import { loadApprovedManifest, saveApprovedManifest } from '@/lib/manifest';
 
 export const maxDuration = 60;
 
@@ -8,6 +9,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const entry: NotionEntry = body.entry;
+    const stableKey: string | undefined = body.stableKey;
 
     if (!entry) {
       return NextResponse.json({ error: 'entry is required' }, { status: 400 });
@@ -41,6 +43,29 @@ export async function POST(request: NextRequest) {
       access: 'public',
       contentType,
     });
+
+    // Persist approval to server-side manifest
+    if (stableKey) {
+      try {
+        const manifest = await loadApprovedManifest();
+        const existing = manifest[stableKey];
+        if (existing?.blobUrls) {
+          // Append this slide's URL to existing entry (carousel)
+          existing.blobUrls.push(blob.url);
+          existing.blobUrl = existing.blobUrl || blob.url;
+        } else {
+          manifest[stableKey] = {
+            blobUrl: blob.url,
+            blobUrls: [blob.url],
+            isVideo,
+          };
+        }
+        await saveApprovedManifest(manifest);
+      } catch (e) {
+        console.error('Failed to update approved manifest:', e);
+        // Non-fatal — blob upload already succeeded
+      }
+    }
 
     return NextResponse.json({
       url: blob.url,
