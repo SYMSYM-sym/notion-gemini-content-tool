@@ -506,46 +506,59 @@ export function usePipeline() {
     [updateStatus, addLog]
   );
 
-  /** Restore previously approved entries from localStorage */
-  const restoreApproved = useCallback((entries: NotionEntry[]) => {
-    const approved = loadApproved();
-    if (approved.size === 0) return;
+  /**
+   * Reset pipeline AND restore previously approved entries in a single batch.
+   * This prevents the race where resetAll() wipes state that restoreApproved() just set.
+   */
+  const resetAndRestore = useCallback((entries: NotionEntry[]) => {
+    runningRef.current = false;
+    pauseRef.current = false;
+    setIsRunning(false);
+    setIsPaused(false);
+    setCurrentEntryId(null);
+    setProcessed(0);
+    setTotal(0);
 
+    const approved = loadApproved();
+
+    // Build new statuses and results maps with approved entries pre-populated
+    const newStatuses = new Map<string, EntryStatus>();
+    const newResults = new Map<string, PipelineResult>();
     let restoredCount = 0;
+
     for (const entry of entries) {
       const key = stableKey(entry);
       const record = approved.get(key);
       if (record) {
-        setStatuses((prev) => {
-          const next = new Map(prev);
-          next.set(entry.id, 'approved');
-          return next;
-        });
-        setResults((prev) => {
-          const next = new Map(prev);
-          next.set(entry.id, {
-            entryId: entry.id,
-            status: 'approved',
-            blobUrl: record.blobUrl,
-            blobUrls: record.blobUrls,
-            isVideo: record.isVideo,
-            attempts: 1,
-          });
-          return next;
+        newStatuses.set(entry.id, 'approved');
+        newResults.set(entry.id, {
+          entryId: entry.id,
+          status: 'approved',
+          blobUrl: record.blobUrl,
+          blobUrls: record.blobUrls,
+          isVideo: record.isVideo,
+          attempts: 1,
         });
         restoredCount++;
       }
     }
+
+    // Set all state at once — no race condition
+    setStatuses(newStatuses);
+    setResults(newResults);
+
     if (restoredCount > 0) {
-      setLog((prev) => [...prev, {
+      setLog([{
         timestamp: new Date(),
         message: `Restored ${restoredCount} previously approved entries`,
         type: 'success' as const,
       }]);
+    } else {
+      setLog([]);
     }
   }, []);
 
-  /** Clear all pipeline state — call when loading a new Notion database */
+  /** Clear all pipeline state — call when no restore is needed */
   const resetAll = useCallback(() => {
     runningRef.current = false;
     pauseRef.current = false;
@@ -576,7 +589,7 @@ export function usePipeline() {
     resetAll,
     manualApprove,
     rejectEntry,
-    restoreApproved,
+    resetAndRestore,
     updateStatus,
     addLog,
   } as const;

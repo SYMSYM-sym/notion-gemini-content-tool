@@ -65,8 +65,6 @@ export default function Dashboard() {
     sessionIdRef.current = `session_${Date.now()}`;
     sessionCreatedAtRef.current = new Date().toISOString();
     sessionUrlRef.current = url;
-    // Reset all pipeline state so nothing carries over from a previous session
-    pipeline.resetAll();
     try {
       // Cache-bust with timestamp to prevent browser and CDN caching
       const res = await fetch(
@@ -77,8 +75,8 @@ export default function Dashboard() {
       if (!res.ok) throw new Error(data.error);
       const sorted = [...data.entries].sort((a: NotionEntry, b: NotionEntry) => (a.day ?? 999) - (b.day ?? 999));
       setEntries(sorted);
-      // Restore any previously approved entries from localStorage
-      pipeline.restoreApproved(sorted);
+      // Reset pipeline state AND restore approved entries in one atomic operation
+      pipeline.resetAndRestore(sorted);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load Notion data');
     } finally {
