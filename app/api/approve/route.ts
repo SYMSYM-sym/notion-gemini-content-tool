@@ -47,6 +47,9 @@ export async function POST(request: NextRequest) {
     // Persist approval to server-side manifest
     if (stableKey) {
       try {
+        // loadApprovedManifest() throws if the blob exists but can't be read.
+        // In that case we MUST NOT write, or we'd overwrite all existing
+        // approvals with just this single entry.
         const manifest = await loadApprovedManifest();
         const existing = manifest[stableKey];
         if (existing?.blobUrls) {
@@ -62,8 +65,8 @@ export async function POST(request: NextRequest) {
         }
         await saveApprovedManifest(manifest);
       } catch (e) {
-        console.error('Failed to update approved manifest:', e);
-        // Non-fatal — blob upload already succeeded
+        console.error('Manifest read/write failed (existing data preserved):', e);
+        // Non-fatal — blob upload already succeeded, manifest will be retried next approval
       }
     }
 

@@ -32,3 +32,23 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+// PATCH: add/update a single entry without risk of overwriting everything.
+// The read-modify-write happens server-side; if the read fails, we don't write.
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const key: string = body.key;
+    const record: ApprovedRecord = body.record;
+    if (!key || !record) {
+      return NextResponse.json({ error: 'key and record are required' }, { status: 400 });
+    }
+    const manifest = await loadApprovedManifest();
+    manifest[key] = record;
+    await saveApprovedManifest(manifest);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to patch';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

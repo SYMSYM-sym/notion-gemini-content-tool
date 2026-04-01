@@ -30,44 +30,76 @@ export default function Dashboard() {
 
   const pipeline = usePipeline();
 
+  // Build the session payload from current state (used by both debounced and immediate saves)
+  const buildSessionPayload = useCallback(() => {
+    if (!sessionIdRef.current || entries.length === 0) return null;
+    const sessionEntries: SessionEntryRecord[] = entries.map((entry) => {
+      const status = pipeline.statuses.get(entry.id) || 'pending';
+      const result = pipeline.results.get(entry.id);
+      return {
+        id: entry.id,
+        day: entry.day,
+        topic: entry.topic,
+        contentType: entry.contentType,
+        platform: entry.platform,
+        status,
+        blobUrl: result?.blobUrl,
+        blobUrls: result?.blobUrls,
+        isVideo: result?.isVideo,
+        verificationScore: result?.verification?.score,
+      };
+    });
+    return {
+      session: {
+        id: sessionIdRef.current,
+        createdAt: sessionCreatedAtRef.current,
+        notionUrl: sessionUrlRef.current,
+        entries: sessionEntries,
+      },
+    };
+  }, [entries, pipeline.statuses, pipeline.results]);
+
+  // Send session save to server
+  const saveSession = useCallback((payload: ReturnType<typeof buildSessionPayload>) => {
+    if (!payload) return;
+    fetch('/api/manifest/sessions', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch((e) => console.error('Session save failed:', e));
+  }, []);
+
   // Auto-save session to server whenever statuses or results change (debounced)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!sessionIdRef.current || entries.length === 0) return;
+    const payload = buildSessionPayload();
+    if (!payload) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      const sessionEntries: SessionEntryRecord[] = entries.map((entry) => {
-        const status = pipeline.statuses.get(entry.id) || 'pending';
-        const result = pipeline.results.get(entry.id);
-        return {
-          id: entry.id,
-          day: entry.day,
-          topic: entry.topic,
-          contentType: entry.contentType,
-          platform: entry.platform,
-          status,
-          blobUrl: result?.blobUrl,
-          blobUrls: result?.blobUrls,
-          isVideo: result?.isVideo,
-          verificationScore: result?.verification?.score,
-        };
-      });
-      fetch('/api/manifest/sessions', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session: {
-            id: sessionIdRef.current,
-            createdAt: sessionCreatedAtRef.current,
-            notionUrl: sessionUrlRef.current,
-            entries: sessionEntries,
-          },
-        }),
-      }).catch(() => {});
-    }, 2000);
+    saveTimerRef.current = setTimeout(() => saveSession(payload), 2000);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entries, pipeline.statuses, pipeline.results]);
+  }, [buildSessionPayload, saveSession]);
+
+  // Flush session save immediately when tab is hidden or page is unloading
+  useEffect(() => {
+    const flushSave = () => {
+      const payload = buildSessionPayload();
+      if (!payload) return;
+      // Use sendBeacon for reliable delivery during page unload
+      navigator.sendBeacon(
+        '/api/manifest/sessions',
+        new Blob([JSON.stringify(payload)], { type: 'application/json' })
+      );
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushSave();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('beforeunload', flushSave);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('beforeunload', flushSave);
+    };
+  }, [buildSessionPayload]);
 
   const loadNotion = useCallback(async (url: string) => {
     setIsLoadingNotion(true);

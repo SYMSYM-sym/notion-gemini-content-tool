@@ -19,23 +19,39 @@ export async function GET() {
   }
 }
 
+async function upsertSession(request: NextRequest) {
+  const body = await request.json();
+  const session: Session = body.session;
+  if (!session?.id) {
+    return NextResponse.json({ error: 'Invalid session' }, { status: 400 });
+  }
+  // loadSessionsManifest throws if blob exists but can't be read.
+  // The catch block below returns 500, preventing a destructive write.
+  const all = await loadSessionsManifest();
+  const idx = all.findIndex((s) => s.id === session.id);
+  if (idx >= 0) {
+    all[idx] = session;
+  } else {
+    all.unshift(session);
+    if (all.length > MAX_SESSIONS) all.splice(MAX_SESSIONS);
+  }
+  await saveSessionsManifest(all);
+  return NextResponse.json({ ok: true });
+}
+
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const session: Session = body.session;
-    if (!session?.id) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 400 });
-    }
-    const all = await loadSessionsManifest();
-    const idx = all.findIndex((s) => s.id === session.id);
-    if (idx >= 0) {
-      all[idx] = session;
-    } else {
-      all.unshift(session);
-      if (all.length > MAX_SESSIONS) all.splice(MAX_SESSIONS);
-    }
-    await saveSessionsManifest(all);
-    return NextResponse.json({ ok: true });
+    return await upsertSession(request);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+// POST handler — used by navigator.sendBeacon for reliable saves on tab close
+export async function POST(request: NextRequest) {
+  try {
+    return await upsertSession(request);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to save';
     return NextResponse.json({ error: message }, { status: 500 });

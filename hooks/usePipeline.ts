@@ -417,15 +417,14 @@ export function usePipeline() {
           blobUrls: finalUrls.length > 0 ? finalUrls : undefined,
         });
 
-        // If blob upload failed but we have a CDN URL, persist to manifest directly
+        // If blob upload failed but we have a CDN URL, persist to manifest directly.
+        // Use PATCH semantics — send only the entry to add, not the full manifest,
+        // so a failed read can't cause a destructive overwrite.
         if (blobUrls.length === 0 && finalUrl && entryKey) {
-          fetch('/api/manifest/approved').then(r => r.json()).then((manifest: Record<string, ApprovedRecord>) => {
-            manifest[entryKey] = { blobUrl: finalUrl, blobUrls: finalUrls, isVideo: true };
-            fetch('/api/manifest/approved', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ data: manifest }),
-            }).catch(() => {});
+          fetch('/api/manifest/approved', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: entryKey, record: { blobUrl: finalUrl, blobUrls: finalUrls, isVideo: true } }),
           }).catch(() => {});
         }
         return;
