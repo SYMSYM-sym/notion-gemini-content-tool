@@ -496,7 +496,13 @@ export function usePipeline() {
 
     for (const entry of entries) {
       const key = stableKey(entry);
-      const record = approvedData[key];
+      // Check both sanitized key (new format) and all approvedData keys
+      // to handle legacy entries with unsanitized keys
+      const record = approvedData[key] ||
+        Object.values(approvedData).find((_, i) => {
+          const legacyKey = Object.keys(approvedData)[i];
+          return legacyKey.replace(/[^a-z0-9_-]/gi, '_') === key;
+        });
       if (record) {
         newStatuses.set(entry.id, 'approved');
         newResults.set(entry.id, {
