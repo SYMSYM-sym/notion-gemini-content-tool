@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { loadApprovedManifest, saveApprovedManifest } from '@/lib/manifest';
 import { ApprovedRecord } from '@/lib/types';
 
+// Force dynamic — without this, Next.js caches the GET response at build time
+// and always returns the stale empty {} result
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const data = await loadApprovedManifest();

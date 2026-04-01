@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { loadSessionsManifest, saveSessionsManifest } from '@/lib/manifest';
 import { Session } from '@/lib/sessions';
 
+// Force dynamic — without this, Next.js caches the GET response at build time
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const MAX_SESSIONS = 30;
 
 export async function GET() {

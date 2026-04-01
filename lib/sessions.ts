@@ -22,7 +22,7 @@ export interface Session {
 
 export async function loadSessions(): Promise<Session[]> {
   try {
-    const res = await fetch('/api/manifest/sessions', { cache: 'no-store' });
+    const res = await fetch(`/api/manifest/sessions?_t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return [];
     const sessions: Session[] = await res.json();
     return sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));

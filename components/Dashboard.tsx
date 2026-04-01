@@ -80,7 +80,7 @@ export default function Dashboard() {
       // Fetch Notion entries and approved manifest in parallel
       const [notionRes, approvedRes] = await Promise.all([
         fetch(`/api/notion?url=${encodeURIComponent(url)}&_t=${Date.now()}`, { cache: 'no-store' }),
-        fetch('/api/manifest/approved', { cache: 'no-store' }),
+        fetch(`/api/manifest/approved?_t=${Date.now()}`, { cache: 'no-store' }),
       ]);
       const data = await notionRes.json();
       if (!notionRes.ok) throw new Error(data.error);

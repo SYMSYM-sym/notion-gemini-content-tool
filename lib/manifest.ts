@@ -7,9 +7,10 @@ const SESSIONS_PATH = '_meta/sessions.json';
 
 async function readBlob<T>(pathname: string, fallback: T): Promise<T> {
   try {
-    // List blobs with the exact prefix to find the file
     const { blobs } = await list({ prefix: pathname, limit: 1 });
     if (blobs.length === 0) return fallback;
+    // Ensure exact pathname match — list uses prefix matching
+    if (blobs[0].pathname !== pathname) return fallback;
     const res = await fetch(blobs[0].url, { cache: 'no-store' });
     if (!res.ok) return fallback;
     return await res.json() as T;
