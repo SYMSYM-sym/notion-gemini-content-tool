@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { NotionEntry } from '@/lib/types';
-import { loadApprovedManifest, saveApprovedManifest } from '@/lib/manifest';
+import { saveApprovedEntry, readApprovedEntry } from '@/lib/manifest';
 
 export const maxDuration = 60;
 
@@ -44,29 +44,26 @@ export async function POST(request: NextRequest) {
       contentType,
     });
 
-    // Persist approval to server-side manifest
+    // Persist approval to individual entry blob file.
+    // No read-modify-write on a global manifest — each entry is its own file.
     if (stableKey) {
       try {
-        // loadApprovedManifest() throws if the blob exists but can't be read.
-        // In that case we MUST NOT write, or we'd overwrite all existing
-        // approvals with just this single entry.
-        const manifest = await loadApprovedManifest();
-        const existing = manifest[stableKey];
+        // For carousels, read the existing entry to append the new slide URL
+        const existing = await readApprovedEntry(stableKey);
         if (existing?.blobUrls) {
-          // Append this slide's URL to existing entry (carousel)
           existing.blobUrls.push(blob.url);
           existing.blobUrl = existing.blobUrl || blob.url;
+          await saveApprovedEntry(stableKey, existing);
         } else {
-          manifest[stableKey] = {
+          await saveApprovedEntry(stableKey, {
             blobUrl: blob.url,
             blobUrls: [blob.url],
             isVideo,
-          };
+          });
         }
-        await saveApprovedManifest(manifest);
       } catch (e) {
-        console.error('Manifest read/write failed (existing data preserved):', e);
-        // Non-fatal — blob upload already succeeded, manifest will be retried next approval
+        console.error('Approved entry save failed:', e);
+        // Non-fatal — blob upload already succeeded
       }
     }
 

@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadSessionsManifest, saveSessionsManifest } from '@/lib/manifest';
+import { loadSessionsManifest, saveSessionBlob, deleteSessionBlob } from '@/lib/manifest';
 import { Session } from '@/lib/sessions';
 
-// Force dynamic — without this, Next.js caches the GET response at build time
+// Force dynamic — prevent Next.js from caching GET at build time
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-const MAX_SESSIONS = 30;
 
 export async function GET() {
   try {
@@ -14,28 +12,21 @@ export async function GET() {
     return NextResponse.json(sessions, {
       headers: { 'Cache-Control': 'no-store' },
     });
-  } catch {
+  } catch (error) {
+    console.error('Failed to load sessions:', error);
     return NextResponse.json([], { status: 200 });
   }
 }
 
+// Shared upsert logic — just writes the session to its own blob file.
+// No read-modify-write, no global manifest to corrupt.
 async function upsertSession(request: NextRequest) {
   const body = await request.json();
   const session: Session = body.session;
   if (!session?.id) {
     return NextResponse.json({ error: 'Invalid session' }, { status: 400 });
   }
-  // loadSessionsManifest throws if blob exists but can't be read.
-  // The catch block below returns 500, preventing a destructive write.
-  const all = await loadSessionsManifest();
-  const idx = all.findIndex((s) => s.id === session.id);
-  if (idx >= 0) {
-    all[idx] = session;
-  } else {
-    all.unshift(session);
-    if (all.length > MAX_SESSIONS) all.splice(MAX_SESSIONS);
-  }
-  await saveSessionsManifest(all);
+  await saveSessionBlob(session);
   return NextResponse.json({ ok: true });
 }
 
@@ -44,6 +35,7 @@ export async function PUT(request: NextRequest) {
     return await upsertSession(request);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to save';
+    console.error('Session PUT failed:', error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -54,6 +46,7 @@ export async function POST(request: NextRequest) {
     return await upsertSession(request);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to save';
+    console.error('Session POST failed:', error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -64,12 +57,11 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'id required' }, { status: 400 });
     }
-    const all = await loadSessionsManifest();
-    const filtered = all.filter((s) => s.id !== id);
-    await saveSessionsManifest(filtered);
+    await deleteSessionBlob(id);
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to delete';
+    console.error('Session DELETE failed:', error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

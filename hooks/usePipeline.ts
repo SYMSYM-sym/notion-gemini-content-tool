@@ -3,9 +3,12 @@
 import { useState, useCallback, useRef } from 'react';
 import { NotionEntry, EntryStatus, VerificationResult, PipelineResult, LogEntry, ApprovedRecord } from '@/lib/types';
 
-/** Stable key for an entry that survives ID changes between Notion reloads */
+/** Stable key for an entry that survives ID changes between Notion reloads.
+ *  Also used as blob pathname — must match the blobSafe() sanitization in manifest.ts. */
 export function stableKey(entry: { day?: number | null; contentType?: string; topic?: string }): string {
-  return `d${entry.day ?? 'X'}_${(entry.contentType || '').toLowerCase().replace(/\s+/g, '')}_${(entry.topic || '').toLowerCase().replace(/\s+/g, '')}`;
+  const raw = `d${entry.day ?? 'X'}_${(entry.contentType || '').toLowerCase().replace(/\s+/g, '')}_${(entry.topic || '').toLowerCase().replace(/\s+/g, '')}`;
+  // Sanitize to match blob pathname: only alphanumeric, underscore, hyphen
+  return raw.replace(/[^a-z0-9_-]/gi, '_');
 }
 
 interface PipelineState {
