@@ -4,32 +4,26 @@ export type ContentCategory = 'photo' | 'graphic' | 'carousel' | 'video_cover' |
 
 /**
  * Strip text/overlay instructions from a visual description so image models
- * don't render on-screen text. Keeps the rest of the description intact.
+ * don't render on-screen text. Only removes phrases that explicitly ask for
+ * rendered text — preserves style directions, visual descriptions, and
+ * artistic instructions even if they're in quotes.
  */
 export function stripTextInstructions(description: string): string {
   return description
-    // "Text: '...'" or "Text: "..."" or "Text: something"
-    .replace(/\btext\s*:\s*["']?[^"'\n.;]+["']?/gi, '')
-    // "Title: ..." / "Headline: ..." / "Caption: ..." / "Subtitle: ..."
-    .replace(/\b(?:title|headline|caption|subtitle|tagline|heading|subheading)\s*:\s*["']?[^"'\n.;]+["']?/gi, '')
+    // "Text: '...'" or "Text: "..."" — explicit text overlay instructions
+    .replace(/\btext\s*:\s*["'][^"']+["']/gi, '')
+    // "Title: '...'" etc. — explicit label overlays with quoted content
+    .replace(/\b(?:title|headline|caption|subtitle|tagline)\s*:\s*["'][^"']+["']/gi, '')
     // "with text '...'" / "with the text '...'"
-    .replace(/with\s+(?:the\s+)?text\b[^.;]*/gi, '')
-    // "text overlay ..."
+    .replace(/with\s+(?:the\s+)?text\s+["'][^"']+["']/gi, '')
+    // "text overlay" phrases
     .replace(/text\s+overlay\b[^.;]*/gi, '')
     // "on-screen text ..."
     .replace(/on[- ]?screen\s+text\b[^.;]*/gi, '')
     // "overlay text ..."
     .replace(/overlay\s+text\b[^.;]*/gi, '')
-    // "overlay: '...'" or "overlay '...'"
-    .replace(/overlay\s*:?\s*["'][^"']+["']/gi, '')
-    // "overlay" standalone → remove the word (replaced to nothing)
-    .replace(/\boverlay\b/gi, '')
-    // "showing the text ..." / "displaying text ..."
-    .replace(/(?:showing|displaying|featuring|reading|saying)\s+(?:the\s+)?text\b[^.;]*/gi, '')
-    // "words appear" / "words on screen"
-    .replace(/\bwords?\s+(?:appear|on\s+screen|visible)\b[^.;]*/gi, '')
-    // "'quoted text'" — remove single-quoted strings that look like overlay text
-    .replace(/'[^']{3,}'/g, '')
+    // "overlay: '...'" — explicit overlay with quoted content
+    .replace(/overlay\s*:\s*["'][^"']+["']/gi, '')
     // Clean up double spaces and leading/trailing whitespace
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -117,9 +111,7 @@ function buildPhotoPrompt(
 ): string {
   const cleanVisual = stripTextInstructions(entry.visualDescription);
 
-  let prompt = `ABSOLUTE RULE: NO TEXT ON THE IMAGE. Do not render any words, letters, numbers, titles, captions, labels, watermarks, handles, or any readable characters anywhere in the image.
-
-Create a professional, high-quality Instagram photo.
+  let prompt = `Create a professional, high-quality Instagram photo.
 
 Topic: ${entry.topic}
 Visual direction: ${cleanVisual}
@@ -127,10 +119,10 @@ Visual direction: ${cleanVisual}
 Requirements:
 - This is a PHOTOGRAPH — create a realistic, high-resolution photo (not a graphic or illustration)
 - Aspect ratio: ${aspectRatio}
-- Follow the visual direction exactly as described above
-- Instagram-ready quality
+- Follow the visual direction EXACTLY — match the described style, mood, scene, and composition precisely
+- Instagram-ready quality with professional lighting and color grading
 - When depicting people, feature WOMEN — this content is for a female-focused audience
-- ZERO text of any kind on the image — no titles, captions, labels, handles, usernames, watermarks, or any visible words`;
+- Do NOT add any text, titles, captions, labels, handles, usernames, or watermarks on the image`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -142,21 +134,19 @@ function buildGraphicPrompt(
 ): string {
   const cleanVisual = stripTextInstructions(entry.visualDescription);
 
-  let prompt = `ABSOLUTE RULE: NO TEXT ON THE IMAGE. Do not render any words, letters, numbers, titles, captions, labels, watermarks, handles, or any readable characters anywhere in the image.
-
-Create a professional Instagram GRAPHIC/INFOGRAPHIC — communicate entirely through visuals, icons, illustrations, and color.
+  let prompt = `Create a professional Instagram GRAPHIC/INFOGRAPHIC.
 
 Topic: ${entry.topic}
 Visual direction: ${cleanVisual}
 
 Requirements:
 - This is a DESIGNED GRAPHIC — create a polished, branded design (not a photograph)
-- Use icons, illustrations, visual metaphors, and color to communicate — NOT text
+- Follow the visual direction EXACTLY — match the described style, layout, color palette, and artistic approach precisely
 - Aspect ratio: ${aspectRatio}
+- Typography: If the visual direction describes text content, include clean, modern, highly readable text
 - Layout: Well-organized with clear visual hierarchy
 - When depicting people or illustrations, feature WOMEN — this content is for a female-focused audience
-- Instagram-ready, no watermarks
-- ZERO text of any kind on the image — no titles, captions, labels, handles, usernames, watermarks, or any visible words`;
+- Instagram-ready, no watermarks, no social media handles or @mentions`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -173,21 +163,19 @@ function buildCarouselPrompts(
     const slideLabel = `Slide ${i + 1} of ${slides.length}`;
     const cleanSlide = stripTextInstructions(slideDesc);
 
-    let prompt = `ABSOLUTE RULE: NO TEXT ON THE IMAGE. Do not render any words, letters, numbers, titles, captions, labels, watermarks, handles, or any readable characters anywhere in the image.
-
-Create a professional Instagram carousel ${slideLabel}.
+    let prompt = `Create a professional Instagram carousel ${slideLabel}.
 
 Topic: ${entry.topic}
-This slide's visual content: ${cleanSlide}
-${isFirst ? 'This is the COVER SLIDE — it should be eye-catching and draw people to swipe.' : 'This is an inner slide — communicate the information through visuals, icons, and imagery only.'}
+This slide's content: ${cleanSlide}
+${isFirst ? 'This is the COVER SLIDE — it should be eye-catching and draw people to swipe.' : 'This is an inner slide — it should contain the described information clearly.'}
 
 Requirements:
 - Aspect ratio: ${aspectRatio} (4:5 portrait format)
+- Follow the visual direction EXACTLY — match the described style, illustrations, and artistic approach precisely
 - Maintain consistent styling across all slides in this carousel
-- Communicate information through visuals, icons, and imagery — NOT text
+- If the description calls for a graphic or illustrated style, create that — not a photograph
 - When depicting people, feature WOMEN — this content is for a female-focused audience
-- Instagram-ready, no watermarks
-- ZERO text of any kind on the image — no titles, captions, labels, handles, usernames, watermarks, or any visible words`;
+- Instagram-ready, no watermarks, no social media handles or @mentions`;
 
     return appendFeedback(prompt, previousFeedback);
   });
@@ -202,22 +190,21 @@ function buildVideoCoverPrompt(
   const format = isReel ? 'Reel' : 'Video';
   const cleanVisual = stripTextInstructions(entry.visualDescription);
 
-  let prompt = `ABSOLUTE RULE: NO TEXT ON THE IMAGE. Do not render any words, letters, numbers, titles, captions, labels, watermarks, handles, or any readable characters anywhere in the image.
-
-Create a professional Instagram ${format} COVER THUMBNAIL.
+  let prompt = `Create a professional Instagram ${format} COVER THUMBNAIL.
 
 Topic: ${entry.topic}
 Video description: ${cleanVisual}
 
 Requirements:
 - This is a COVER THUMBNAIL for a ${format} — create a single eye-catching static image that represents the video content
+- Follow the visual direction EXACTLY — match the described mood, setting, and style precisely
 - The thumbnail should make viewers want to watch the ${format.toLowerCase()}
 - Aspect ratio: ${aspectRatio}
 - Show the key visual element from the video description as a still frame
 - Add a subtle cinematic feel to indicate this is for video
 - When depicting people, feature WOMEN — this content is for a female-focused audience
 - Instagram-ready, no watermarks
-- ZERO text of any kind on the image — no titles, captions, labels, handles, usernames, watermarks, or any visible words`;
+- Do NOT add any text, titles, captions, labels, handles, or usernames on the image`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -228,19 +215,18 @@ function buildStoryPrompt(
 ): string {
   const cleanVisual = stripTextInstructions(entry.visualDescription);
 
-  let prompt = `ABSOLUTE RULE: NO TEXT ON THE IMAGE. Do not render any words, letters, numbers, titles, captions, labels, watermarks, handles, or any readable characters anywhere in the image.
-
-Create a professional Instagram Story image.
+  let prompt = `Create a professional Instagram Story image.
 
 Topic: ${entry.topic}
 Visual direction: ${cleanVisual}
 
 Requirements:
 - This is an Instagram STORY — vertical format, 9:16 aspect ratio
+- Follow the visual direction EXACTLY — match the described style, mood, and composition precisely
 - Bold, attention-grabbing visuals
 - When depicting people, feature WOMEN — this content is for a female-focused audience
 - Instagram-ready, no watermarks
-- ZERO text of any kind on the image — no titles, captions, labels, handles, usernames, watermarks, or any visible words`;
+- Do NOT add any text, titles, captions, labels, handles, or usernames on the image`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -274,8 +260,8 @@ export function buildVerificationPrompt(entry: NotionEntry): string {
 
   const categoryContext: Record<ContentCategory, string> = {
     photo: 'This should be a realistic PHOTOGRAPH (not a graphic/illustration).',
-    graphic: 'This should be a designed GRAPHIC/INFOGRAPHIC that communicates through visuals, icons, and illustrations.',
-    carousel: 'This is a slide from a CAROUSEL — check if it has proper slide-style layout.',
+    graphic: 'This should be a designed GRAPHIC/INFOGRAPHIC with clean design, icons, and visual elements.',
+    carousel: 'This is a slide from a CAROUSEL — check if it has proper slide-style layout and matches the described artistic style.',
     video_cover: 'This is a COVER THUMBNAIL for a video/reel — it should look like a video thumbnail with cinematic feel. Do NOT penalize it for being a static image.',
     story: 'This is an Instagram STORY image — vertical format, bold visuals.',
   };
@@ -287,14 +273,15 @@ export function buildVerificationPrompt(entry: NotionEntry): string {
 Content type: ${entry.contentType}
 ${categoryContext[category]}
 
-CRITICAL RULE: The image must contain NO visible text of any kind. Any text, titles, captions, labels, watermarks, handles, or readable characters in the image is a MAJOR defect. If you see ANY text on the image, deduct at least 3 points and list it in unwanted_elements.
-
-Score the image 1-10 on how well it matches the instructions. Consider:
+Score the image 1-10 on how well it matches the instructions. The PRIMARY criteria (80% of the score) is:
+- Does it match the described STYLE and ARTISTIC APPROACH? (e.g., if "minimalist vector illustration" is requested, is it a minimalist vector illustration — not a photograph?)
 - Does it contain the correct objects, scenes, and elements described?
-- Does it match the described style/mood from the visual direction?
+- Does it match the described mood, color palette, and composition?
+
+Secondary criteria (20% of the score):
 - Is it high quality and Instagram-ready?
 - Does it avoid unwanted elements (watermarks, distortion, wrong aspect ratio, social media handles)?
-- Does it contain ZERO visible text? (Any text = automatic score penalty)
+- If visible text/watermarks appear on the image, note it in unwanted_elements and deduct 1 point
 ${category === 'video_cover' ? '- For video thumbnails: DO NOT penalize for being a static image. Score based on whether it makes a good thumbnail for the described video content.' : ''}
 
 Respond with JSON only:
@@ -303,7 +290,7 @@ Respond with JSON only:
   "matches": <true if score >= 7>,
   "feedback": "<specific feedback on what matches and what doesn't>",
   "missing_elements": ["<list of things from description not present in image>"],
-  "unwanted_elements": ["<list of things in image not asked for — ALWAYS include 'text overlay' here if any visible text exists>"]
+  "unwanted_elements": ["<list of things in image not asked for>"]
 }`;
 }
 
