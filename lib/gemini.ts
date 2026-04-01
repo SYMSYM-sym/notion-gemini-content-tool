@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NotionEntry, VerificationResult } from './types';
-import { buildSlidePrompts, getAspectRatio } from './prompts';
+import { buildSlidePrompts, getAspectRatio, stripTextInstructions } from './prompts';
 
 function getGenAI(): GoogleGenerativeAI {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -111,18 +111,7 @@ export async function generateVideo(
     : [];
 
   // Clean the visual description for video — strip anything that could produce on-screen text
-  const visualDirection = entry.visualDescription
-    .replace(/overlay/gi, 'audio dialogue')
-    .replace(/\btext\s*:\s*["']?[^"'\n.]+["']?/gi, '')
-    .replace(/\btitle\s*:\s*["']?[^"'\n.]+["']?/gi, '')
-    .replace(/\bcaption\s*:\s*["']?[^"'\n.]+["']?/gi, '')
-    .replace(/\bsubtitle\s*:\s*["']?[^"'\n.]+["']?/gi, '')
-    .replace(/\bheadline\s*:\s*["']?[^"'\n.]+["']?/gi, '')
-    .replace(/with\s+(?:the\s+)?text\b[^.;]*/gi, '')
-    .replace(/text\s+overlay\b[^.;]*/gi, '')
-    .replace(/on[- ]?screen\s+text\b[^.;]*/gi, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+  const visualDirection = stripTextInstructions(entry.visualDescription);
 
   // Calculate duration based on dialogue word count (~2.5 words/sec + 2s buffer)
   // fal.ai LTX v2.3 accepts: 6, 8, 10, 12, 14, 16, 18, 20
