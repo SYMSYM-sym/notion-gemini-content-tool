@@ -50,31 +50,74 @@ export function getAspectRatio(contentType: string): string {
 }
 
 /**
+ * Detect whether a visual description contains slide markers.
+ */
+export function hasSlideMarkers(visualDescription: string): boolean {
+  // Match at least 2 slide indicators in the text
+  const markers = visualDescription.match(/(?:\[Slide\s*\d|Slide\s*\d\s*[:\-–—.]|\(Slide\s*\d)/gi);
+  return (markers?.length ?? 0) >= 2;
+}
+
+/**
  * Parse a visual description into individual slides for carousels.
+ * Handles many Notion description formats:
+ *   [Slide 1] ... [Slide 2] ...
+ *   Slide 1: ... Slide 2: ...
+ *   Slide 1 - ... Slide 2 - ...
+ *   (Slide 1) ... (Slide 2) ...
  */
 export function parseSlides(visualDescription: string): string[] {
-  // Try [Slide N] or [Slide N-M] patterns
-  const parts = visualDescription.split(/\[Slide\s*\d+(?:\s*-\s*\d+)?\]\s*/i).filter((s) => s.trim());
-  if (parts.length > 1) {
-    const firstSlideIdx = visualDescription.search(/\[Slide\s*\d/i);
-    const preamble = firstSlideIdx > 0 ? visualDescription.substring(0, firstSlideIdx).trim() : '';
-    const filtered = preamble
-      ? parts.filter((s) => s.trim() !== preamble.replace(/[:\s]+$/, '').trim())
-      : parts;
-    if (filtered.length > 1) return filtered.map((s) => s.trim());
-    if (parts.length > 1) return parts.map((s) => s.trim());
+  // Strategy 1: [Slide N] or [Slide N-M] with brackets
+  const bracketPattern = /\[Slide\s*\d+(?:\s*[-–—]\s*\d+)?\]\s*/gi;
+  if (bracketPattern.test(visualDescription)) {
+    const parts = visualDescription.split(bracketPattern).filter((s) => s.trim());
+    if (parts.length >= 2) return cleanParts(visualDescription, parts, bracketPattern);
   }
 
-  // Try "Slide N:" patterns
-  const parts2 = visualDescription.split(/Slide\s*\d+[:\s]+/i).filter((s) => s.trim());
-  if (parts2.length > 1) return parts2.map((s) => s.trim());
+  // Strategy 2: (Slide N) with parentheses
+  const parenPattern = /\(Slide\s*\d+\)\s*/gi;
+  if (parenPattern.test(visualDescription)) {
+    const parts = visualDescription.split(parenPattern).filter((s) => s.trim());
+    if (parts.length >= 2) return cleanParts(visualDescription, parts, parenPattern);
+  }
+
+  // Strategy 3: "Slide N:" or "Slide N -" or "Slide N." with various separators
+  const sepPattern = /Slide\s*\d+\s*[:\-–—.]\s*/gi;
+  if (sepPattern.test(visualDescription)) {
+    const parts = visualDescription.split(sepPattern).filter((s) => s.trim());
+    if (parts.length >= 2) return cleanParts(visualDescription, parts, sepPattern);
+  }
+
+  // Strategy 4: "Slide N " (just space, no separator) — looser match
+  const loosePattern = /Slide\s*\d+\s+/gi;
+  const looseMatches = visualDescription.match(loosePattern);
+  if (looseMatches && looseMatches.length >= 2) {
+    const parts = visualDescription.split(loosePattern).filter((s) => s.trim());
+    if (parts.length >= 2) return cleanParts(visualDescription, parts, loosePattern);
+  }
 
   return [visualDescription.trim()];
 }
 
+/** Remove preamble text that appears before the first slide marker */
+function cleanParts(original: string, parts: string[], pattern: RegExp): string[] {
+  // Reset the regex since we used .test() which advances lastIndex
+  pattern.lastIndex = 0;
+  const firstMatch = original.search(pattern);
+  if (firstMatch > 20) {
+    // There's significant text before the first slide marker (preamble)
+    // The first element in parts is the preamble — remove it
+    return parts.slice(1).map((s) => s.trim()).filter((s) => s.length > 0);
+  }
+  return parts.map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
 /**
  * Build the right prompts based on content type analysis.
- * Returns an array of prompts — 1 for most types, N for carousels.
+ * Returns an array of prompts — 1 for single images, N for carousels.
+ *
+ * ANY content type with slide markers in its visual description generates
+ * multiple images (carousel), regardless of the contentType label.
  */
 export function buildSlidePrompts(
   entry: NotionEntry,
@@ -83,15 +126,20 @@ export function buildSlidePrompts(
   const category = getContentCategory(entry.contentType);
   const aspectRatio = getAspectRatio(entry.contentType);
 
+  // If the visual description contains slide markers, treat it as a carousel
+  // regardless of the content type label (e.g. "1:1 Graphic" with slides)
+  const isMultiSlide = category === 'carousel' || hasSlideMarkers(entry.visualDescription);
+
+  if (isMultiSlide) {
+    return buildCarouselPrompts(entry, aspectRatio, previousFeedback);
+  }
+
   switch (category) {
     case 'photo':
       return [buildPhotoPrompt(entry, aspectRatio, previousFeedback)];
 
     case 'graphic':
       return [buildGraphicPrompt(entry, aspectRatio, previousFeedback)];
-
-    case 'carousel':
-      return buildCarouselPrompts(entry, aspectRatio, previousFeedback);
 
     case 'video_cover':
       return [buildVideoCoverPrompt(entry, aspectRatio, previousFeedback)];

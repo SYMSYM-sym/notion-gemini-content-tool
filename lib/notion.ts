@@ -18,7 +18,7 @@ function getTextValue(value: unknown): string {
   if (!value) return '';
   if (typeof value === 'string') return value;
   if (Array.isArray(value)) {
-    return value.map((v) => (typeof v === 'string' ? v : v?.[0] || '')).join('');
+    return value.map((v) => (typeof v === 'string' ? v : v?.[0] || '')).join(' ');
   }
   return String(value);
 }
@@ -104,7 +104,7 @@ export async function fetchNotionDatabase(databaseId: string): Promise<NotionEnt
             const val = props[propId];
             if (val) {
               row[propSchema.name] = Array.isArray(val)
-                ? val.map((v: unknown[]) => v[0]).join('')
+                ? val.map((v: unknown[]) => v[0]).join(' ')
                 : val;
             }
           }
