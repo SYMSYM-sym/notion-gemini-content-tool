@@ -66,10 +66,11 @@ async function generateSingleImage(
 
 export async function generateImages(
   entry: NotionEntry,
-  previousFeedback?: VerificationResult | null
+  previousFeedback?: VerificationResult | null,
+  theme?: string
 ): Promise<{ images: string[]; prompts: string[] }> {
   const genAI = getGenAI();
-  const prompts = buildSlidePrompts(entry, previousFeedback);
+  const prompts = buildSlidePrompts(entry, previousFeedback, theme);
   const aspectRatio = getAspectRatio(entry.contentType);
 
   const images: string[] = [];
@@ -93,6 +94,7 @@ export async function generateImages(
  */
 export async function generateVideo(
   entry: NotionEntry,
+  theme?: string,
 ): Promise<{ videoUrl: string; prompt: string }> {
   const falKey = process.env.FAL_KEY?.trim();
   if (!falKey) throw new Error('FAL_KEY is not configured');
@@ -142,18 +144,20 @@ export async function generateVideo(
   // - Keep the prompt as a pure cinematic shot description with no structured data
 
   // Convert topic to a simple lowercase thematic phrase — strip subtitle structures,
-  // punctuation, and anything that resembles a title/heading
-  const theme = entry.topic
+  // punctuation, and anything that resembles a title/heading.
+  // If a general theme was provided by the user, prefer it over the topic.
+  const topicTheme = entry.topic
     .replace(/:.*$/, '')        // Remove subtitle after colon
     .replace(/[?!""''":]/g, '') // Remove punctuation that signals titles
     .trim()
     .toLowerCase();
+  const videoTheme = theme ? theme.toLowerCase() : topicTheme;
 
   const speechPart = spokenDialogue.length > 0
     ? ' A warm female voice narrates throughout.'
     : ' Ambient sounds and gentle background music.';
 
-  const prompt = `Cinematic footage about ${theme}. ${visualDirection}.${speechPart} Smooth gentle camera movements, soft natural lighting, high production quality. Feature women throughout.`;
+  const prompt = `Cinematic footage about ${videoTheme}. ${visualDirection}.${speechPart} Smooth gentle camera movements, soft natural lighting, high production quality. Feature women throughout.`;
 
   let result;
   try {

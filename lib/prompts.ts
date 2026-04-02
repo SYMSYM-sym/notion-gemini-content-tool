@@ -160,7 +160,8 @@ function cleanParts(original: string, parts: string[], pattern: RegExp): string[
  */
 export function buildSlidePrompts(
   entry: NotionEntry,
-  previousFeedback?: VerificationResult | null
+  previousFeedback?: VerificationResult | null,
+  theme?: string
 ): string[] {
   const category = getContentCategory(entry.contentType);
   const aspectRatio = getAspectRatio(entry.contentType);
@@ -170,36 +171,37 @@ export function buildSlidePrompts(
   const isMultiSlide = category === 'carousel' || hasSlideMarkers(entry.visualDescription);
 
   if (isMultiSlide) {
-    return buildCarouselPrompts(entry, aspectRatio, previousFeedback);
+    return buildCarouselPrompts(entry, aspectRatio, previousFeedback, theme);
   }
 
   switch (category) {
     case 'photo':
-      return [buildPhotoPrompt(entry, aspectRatio, previousFeedback)];
+      return [buildPhotoPrompt(entry, aspectRatio, previousFeedback, theme)];
 
     case 'graphic':
-      return [buildGraphicPrompt(entry, aspectRatio, previousFeedback)];
+      return [buildGraphicPrompt(entry, aspectRatio, previousFeedback, theme)];
 
     case 'video_cover':
-      return [buildVideoCoverPrompt(entry, aspectRatio, previousFeedback)];
+      return [buildVideoCoverPrompt(entry, aspectRatio, previousFeedback, theme)];
 
     case 'story':
-      return [buildStoryPrompt(entry, previousFeedback)];
+      return [buildStoryPrompt(entry, previousFeedback, theme)];
 
     default:
-      return [buildPhotoPrompt(entry, aspectRatio, previousFeedback)];
+      return [buildPhotoPrompt(entry, aspectRatio, previousFeedback, theme)];
   }
 }
 
 function buildPhotoPrompt(
   entry: NotionEntry,
   aspectRatio: string,
-  previousFeedback?: VerificationResult | null
+  previousFeedback?: VerificationResult | null,
+  theme?: string
 ): string {
   const cleanVisual = stripTextInstructions(entry.visualDescription);
 
   let prompt = `Create a professional, high-quality Instagram photo.
-
+${theme ? `\nCreative theme: ${theme} — ensure the visual style and mood align with this overarching theme.\n` : ''}
 Topic: ${entry.topic}
 Visual direction: ${cleanVisual}
 
@@ -217,12 +219,13 @@ Requirements:
 function buildGraphicPrompt(
   entry: NotionEntry,
   aspectRatio: string,
-  previousFeedback?: VerificationResult | null
+  previousFeedback?: VerificationResult | null,
+  theme?: string
 ): string {
   const cleanVisual = stripTextInstructions(entry.visualDescription);
 
   let prompt = `Create a professional Instagram GRAPHIC/INFOGRAPHIC.
-
+${theme ? `\nCreative theme: ${theme} — ensure the color palette, illustrations, and design language align with this overarching theme.\n` : ''}
 Topic: ${entry.topic}
 Visual direction: ${cleanVisual}
 
@@ -241,7 +244,8 @@ Requirements:
 function buildCarouselPrompts(
   entry: NotionEntry,
   aspectRatio: string,
-  previousFeedback?: VerificationResult | null
+  previousFeedback?: VerificationResult | null,
+  theme?: string
 ): string[] {
   const slides = parseSlides(entry.visualDescription);
 
@@ -251,7 +255,7 @@ function buildCarouselPrompts(
     const cleanSlide = stripTextInstructions(slideDesc);
 
     let prompt = `Create a professional Instagram carousel ${slideLabel}.
-
+${theme ? `\nCreative theme: ${theme} — maintain a consistent visual identity across all slides that aligns with this theme.\n` : ''}
 Topic: ${entry.topic}
 This slide's content: ${cleanSlide}
 ${isFirst ? 'This is the COVER SLIDE — it should be eye-catching and draw people to swipe.' : 'This is an inner slide — it should contain the described information clearly.'}
@@ -271,14 +275,15 @@ Requirements:
 function buildVideoCoverPrompt(
   entry: NotionEntry,
   aspectRatio: string,
-  previousFeedback?: VerificationResult | null
+  previousFeedback?: VerificationResult | null,
+  theme?: string
 ): string {
   const isReel = entry.contentType.toLowerCase().includes('reel');
   const format = isReel ? 'Reel' : 'Video';
   const cleanVisual = stripTextInstructions(entry.visualDescription);
 
   let prompt = `Create a professional Instagram ${format} COVER THUMBNAIL.
-
+${theme ? `\nCreative theme: ${theme} — the thumbnail should feel cohesive with the broader content series.\n` : ''}
 Topic: ${entry.topic}
 Video description: ${cleanVisual}
 
@@ -298,12 +303,13 @@ Requirements:
 
 function buildStoryPrompt(
   entry: NotionEntry,
-  previousFeedback?: VerificationResult | null
+  previousFeedback?: VerificationResult | null,
+  theme?: string
 ): string {
   const cleanVisual = stripTextInstructions(entry.visualDescription);
 
   let prompt = `Create a professional Instagram Story image.
-
+${theme ? `\nCreative theme: ${theme} — the story should feel part of a cohesive content series.\n` : ''}
 Topic: ${entry.topic}
 Visual direction: ${cleanVisual}
 

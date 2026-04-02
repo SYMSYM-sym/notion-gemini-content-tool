@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [selectedEntry, setSelectedEntry] = useState<NotionEntry | null>(null);
   const [showReview, setShowReview] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [theme, setTheme] = useState('');
 
   const sessionIdRef = useRef<string | null>(null);
   const sessionCreatedAtRef = useRef<string>('');
@@ -219,11 +220,21 @@ export default function Dashboard() {
               {showHistory ? '← Generator' : 'History'}
             </button>
           </div>
-          <div className="w-full sm:w-96">
+          <div className="w-full sm:w-96 space-y-2">
             <NotionUrlInput
               onLoad={loadNotion}
               isLoading={isLoadingNotion}
               defaultUrl={process.env.NEXT_PUBLIC_DEFAULT_NOTION_URL}
+            />
+            <input
+              type="text"
+              value={theme}
+              onChange={(e) => {
+                setTheme(e.target.value);
+                pipeline.setTheme(e.target.value);
+              }}
+              placeholder="General theme for this URL (e.g., Holistic Wellness for Women)..."
+              className="w-full px-3 py-1.5 text-sm border rounded-lg bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-sage-500 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
             />
           </div>
         </div>

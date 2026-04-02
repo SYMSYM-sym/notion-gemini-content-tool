@@ -8,12 +8,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const entry: NotionEntry = body.entry;
+    const theme: string | undefined = body.theme;
 
     if (!entry) {
       return NextResponse.json({ error: 'No entry provided' }, { status: 400 });
     }
 
-    const { videoUrl, prompt } = await generateVideo(entry);
+    const { videoUrl, prompt } = await generateVideo(entry, theme);
 
     // Return the fal.ai CDN URL directly — don't download here to avoid
     // Vercel's 4.5MB response limit (a 1080p video is 20-100MB).

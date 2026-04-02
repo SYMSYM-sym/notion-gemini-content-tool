@@ -11,12 +11,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const entry: NotionEntry = body.entry;
     const previousFeedback: VerificationResult | undefined = body.previousFeedback;
+    const theme: string | undefined = body.theme;
 
     if (!entry) {
       return NextResponse.json({ error: 'No entry provided' }, { status: 400 });
     }
 
-    const { images, prompts } = await generateImages(entry, previousFeedback);
+    const { images, prompts } = await generateImages(entry, previousFeedback, theme);
 
     return NextResponse.json({
       imageBase64: images[0],

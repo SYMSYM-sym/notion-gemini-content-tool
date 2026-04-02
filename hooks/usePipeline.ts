@@ -35,6 +35,7 @@ export function usePipeline() {
 
   const pauseRef = useRef(false);
   const runningRef = useRef(false);
+  const themeRef = useRef<string>('');
 
   const updateStatus = useCallback((entryId: string, status: EntryStatus) => {
     setStatuses((prev) => {
@@ -81,7 +82,7 @@ export function usePipeline() {
       const res = await fetch('/api/generate-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entry }),
+        body: JSON.stringify({ entry, theme: themeRef.current || undefined }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -152,6 +153,7 @@ export function usePipeline() {
             body: JSON.stringify({
               entry,
               previousFeedback: lastFeedback,
+              theme: themeRef.current || undefined,
             }),
           });
           if (!res.ok) {
@@ -545,6 +547,10 @@ export function usePipeline() {
     setTotal(0);
   }, []);
 
+  const setTheme = useCallback((theme: string) => {
+    themeRef.current = theme;
+  }, []);
+
   return {
     statuses,
     results,
@@ -565,6 +571,7 @@ export function usePipeline() {
     resetAndRestore,
     updateStatus,
     addLog,
+    setTheme,
   } as const;
 }
 
