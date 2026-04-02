@@ -128,12 +128,11 @@ export async function generateVideo(
   // that could cause fal.ai to render on-screen text
   const visualDirection = stripTextForVideo(entry.visualDescription);
 
-  // Calculate duration based on dialogue word count (~2.5 words/sec + 2s buffer)
-  // fal.ai LTX v2.3 accepts: 6, 8, 10, 12, 14, 16, 18, 20
+  // fal.ai LTX v2.3 only accepts duration: 6, 8, or 10 seconds
+  const allowedDurations = [6, 8, 10] as const;
   const totalDialogueWords = spokenDialogue.reduce((sum, d) => sum + d.split(/\s+/).length, 0);
   const neededSeconds = totalDialogueWords > 0 ? Math.ceil(totalDialogueWords / 2.5) + 3 : 8;
-  const allowedDurations = [6, 8, 10, 12, 14, 16, 18, 20];
-  const duration = allowedDurations.find((d) => d >= neededSeconds) ?? 20;
+  const duration = allowedDurations.find((d) => d >= neededSeconds) ?? 10;
 
   // IMPORTANT: Do NOT include exact dialogue words in the prompt.
   // fal.ai LTX v2.3 renders any text it sees in the prompt as on-screen text.
@@ -160,16 +159,20 @@ When depicting people, feature WOMEN — this content is for a female-focused au
         duration,
         resolution: '1080p',
         aspect_ratio: aspectRatio,
-        fps: 25,
+        fps: 24,
         generate_audio: true,
       },
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
+    // Include full error detail for debugging
+    const detail = (err as { body?: unknown })?.body
+      ? JSON.stringify((err as { body: unknown }).body).slice(0, 300)
+      : '';
     if (msg.includes('Forbidden') || msg.includes('401') || msg.includes('403')) {
       throw new Error('FAL_KEY is invalid or expired — generate a new key at fal.ai/dashboard/keys and update it in Vercel env vars');
     }
-    throw new Error(`fal.ai error: ${msg}`);
+    throw new Error(`fal.ai error: ${msg}${detail ? ' — ' + detail : ''}`);
   }
 
   const videoUrl = (result.data as { video?: { url?: string } })?.video?.url;
