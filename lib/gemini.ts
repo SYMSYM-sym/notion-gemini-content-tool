@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NotionEntry, VerificationResult } from './types';
-import { buildSlidePrompts, getAspectRatio, stripTextInstructions } from './prompts';
+import { buildSlidePrompts, getAspectRatio, stripTextForVideo } from './prompts';
 
 function getGenAI(): GoogleGenerativeAI {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -123,8 +123,10 @@ export async function generateVideo(
   }
   const spokenDialogue = Array.from(dialogueSet);
 
-  // Clean the visual description for video — strip anything that could produce on-screen text
-  const visualDirection = stripTextInstructions(entry.visualDescription);
+  // Aggressively strip the visual description for video — remove all quoted content
+  // (dialogue already extracted above), text/overlay instructions, and anything
+  // that could cause fal.ai to render on-screen text
+  const visualDirection = stripTextForVideo(entry.visualDescription);
 
   // Calculate duration based on dialogue word count (~2.5 words/sec + 2s buffer)
   // fal.ai LTX v2.3 accepts: 6, 8, 10, 12, 14, 16, 18, 20
@@ -139,9 +141,7 @@ ${spokenDialogue.map((d, i) => `${i + 1}. "${d}"`).join('\n')}
 CRITICAL: Every line of dialogue above MUST be spoken in full. Pace the speech so all dialogue fits within the ${duration}-second video. Do NOT rush, skip, or truncate any words. Do NOT add any other narration or voiceover beyond these lines.`
     : '\nNo spoken dialogue — ambient sounds and music only.';
 
-  const prompt = `ABSOLUTE RULE: NO TEXT ON SCREEN. Zero text overlays, zero titles, zero captions, zero subtitles, zero watermarks, zero logos, zero words of any kind visible in the video. The video must be purely visual with no readable characters anywhere.
-
-Professional short video with ambient sound and music.
+  const prompt = `Professional short video. Purely visual — absolutely NO text, titles, captions, subtitles, watermarks, labels, or any visible words/letters/numbers anywhere in any frame.
 
 Topic: ${entry.topic}
 Visual direction: ${visualDirection}
@@ -150,7 +150,7 @@ ${dialogueInstruction}
 Smooth, gentle camera movements. High production quality.
 Include ambient music or gentle background sounds.
 When depicting people, feature WOMEN — this content is for a female-focused audience.
-REMINDER: Absolutely NO on-screen text, titles, subtitles, captions, labels, watermarks, logos, or any visible words. Dialogue is AUDIO ONLY.`;
+All dialogue is AUDIO ONLY — never render spoken words as on-screen text.`;
 
   let result;
   try {

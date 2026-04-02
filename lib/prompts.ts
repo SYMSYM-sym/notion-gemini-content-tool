@@ -2,20 +2,25 @@ import { NotionEntry, VerificationResult } from './types';
 
 export type ContentCategory = 'photo' | 'graphic' | 'carousel' | 'video_cover' | 'story';
 
+/** All quote characters (straight + smart/curly) */
+const Q = `["'\u201C\u201D\u2018\u2019]`;
+const Q_OPEN = `["'\u201C\u2018]`;
+const Q_CLOSE = `["'\u201D\u2019]`;
+const Q_INNER = `[^"'\u201C\u201D\u2018\u2019]`;
+
 /**
- * Strip text/overlay instructions from a visual description so image models
- * don't render on-screen text. Only removes phrases that explicitly ask for
- * rendered text — preserves style directions, visual descriptions, and
- * artistic instructions even if they're in quotes.
+ * Strip text/overlay instructions from a visual description for IMAGES.
+ * Light-touch: only removes phrases that explicitly ask for rendered text.
+ * Preserves style directions and artistic instructions.
  */
 export function stripTextInstructions(description: string): string {
   return description
     // "Text: '...'" or "Text: "..."" — explicit text overlay instructions
-    .replace(/\btext\s*:\s*["'][^"']+["']/gi, '')
+    .replace(new RegExp(`\\btext\\s*:\\s*${Q_OPEN}${Q_INNER}+${Q_CLOSE}`, 'gi'), '')
     // "Title: '...'" etc. — explicit label overlays with quoted content
-    .replace(/\b(?:title|headline|caption|subtitle|tagline)\s*:\s*["'][^"']+["']/gi, '')
+    .replace(new RegExp(`\\b(?:title|headline|caption|subtitle|tagline)\\s*:\\s*${Q_OPEN}${Q_INNER}+${Q_CLOSE}`, 'gi'), '')
     // "with text '...'" / "with the text '...'"
-    .replace(/with\s+(?:the\s+)?text\s+["'][^"']+["']/gi, '')
+    .replace(new RegExp(`with\\s+(?:the\\s+)?text\\s+${Q_OPEN}${Q_INNER}+${Q_CLOSE}`, 'gi'), '')
     // "text overlay" phrases
     .replace(/text\s+overlay\b[^.;]*/gi, '')
     // "on-screen text ..."
@@ -23,8 +28,36 @@ export function stripTextInstructions(description: string): string {
     // "overlay text ..."
     .replace(/overlay\s+text\b[^.;]*/gi, '')
     // "overlay: '...'" — explicit overlay with quoted content
-    .replace(/overlay\s*:\s*["'][^"']+["']/gi, '')
-    // Clean up double spaces and leading/trailing whitespace
+    .replace(new RegExp(`overlay\\s*:\\s*${Q_OPEN}${Q_INNER}+${Q_CLOSE}`, 'gi'), '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/**
+ * Aggressive text stripping for VIDEOS. Videos must have zero on-screen text,
+ * so this strips everything that could cause a video model to render text:
+ * all quoted content, overlay/text/title mentions, etc.
+ */
+export function stripTextForVideo(description: string): string {
+  return description
+    // Remove ALL quoted content (straight and smart quotes) — these are dialogue or text overlays
+    .replace(new RegExp(`${Q_OPEN}${Q_INNER}{2,}${Q_CLOSE}`, 'g'), '')
+    // "Text: something" / "Title: something" etc. — with or without quotes
+    .replace(/\b(?:text|title|headline|caption|subtitle|tagline|heading)\s*:\s*[^.;\n]*/gi, '')
+    // "overlay" anything
+    .replace(/\boverlay\b[^.;\n]*/gi, '')
+    // "on-screen text/words"
+    .replace(/on[- ]?screen\s+(?:text|words?)\b[^.;]*/gi, '')
+    // "text appears" / "text reads" / "text saying" / "text floats"
+    .replace(/\btext\s+(?:appear|read|say|float|fade|slide|pop|show|display)\w*\b[^.;]*/gi, '')
+    // "showing text" / "displaying text" / "featuring text"
+    .replace(/(?:show(?:ing|s)?|display(?:ing|s)?|featuring?)\s+(?:the\s+)?(?:text|words?|title|caption)\b[^.;]*/gi, '')
+    // "words appear" / "words float"
+    .replace(/\bwords?\s+(?:appear|float|fade|slide|pop|show)\w*\b[^.;]*/gi, '')
+    // "with text" anything
+    .replace(/with\s+(?:the\s+)?text\b[^.;]*/gi, '')
+    // "narration:" / "voiceover:" lines (dialogue already extracted separately)
+    .replace(/(?:narrat(?:ion|or)|voiceover|voice[- ]?over|speaker)\s*:\s*[^.;\n]*/gi, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
