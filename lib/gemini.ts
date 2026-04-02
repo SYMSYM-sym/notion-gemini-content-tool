@@ -104,11 +104,24 @@ export async function generateVideo(
   const ct = entry.contentType.toLowerCase();
   const aspectRatio = ct.includes('9:16') || ct.includes('reel') || ct.includes('video') ? '9:16' : '16:9';
 
-  // Extract spoken dialogue from single quotes in the visual description
-  const dialogueMatches = entry.visualDescription.match(/'([^']+)'/g);
-  const spokenDialogue = dialogueMatches
-    ? dialogueMatches.map((m) => m.replace(/'/g, '').trim()).filter(Boolean)
-    : [];
+  // Extract spoken dialogue from ANY type of quotes in the visual description:
+  // single quotes: '...'  double quotes: "..."
+  // smart quotes: \u2018...\u2019  \u201C...\u201D
+  // Also match Narration/Voiceover/Speaker prefixed lines
+  const quotePattern = /(?:[""\u201C])([^""\u201D]{5,})(?:[""\u201D])|(?:['\u2018])([^'\u2019]{5,})(?:['\u2019])/g;
+  const narratorPattern = /(?:narrat(?:ion|or)|voiceover|voice[- ]?over|speaker|says?|speak(?:ing|s)?)\s*:\s*["'\u201C\u2018]?([^"'\u201D\u2019\n.]{5,})["'\u201D\u2019]?/gi;
+
+  const dialogueSet = new Set<string>();
+  let match;
+  while ((match = quotePattern.exec(entry.visualDescription)) !== null) {
+    const text = (match[1] || match[2]).trim();
+    if (text) dialogueSet.add(text);
+  }
+  while ((match = narratorPattern.exec(entry.visualDescription)) !== null) {
+    const text = match[1].trim();
+    if (text) dialogueSet.add(text);
+  }
+  const spokenDialogue = Array.from(dialogueSet);
 
   // Clean the visual description for video — strip anything that could produce on-screen text
   const visualDirection = stripTextInstructions(entry.visualDescription);
