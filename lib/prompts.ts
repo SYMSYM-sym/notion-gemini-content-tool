@@ -42,29 +42,32 @@ export function stripTextForVideo(description: string): string {
   return description
     // Remove ALL quoted content (straight and smart quotes) — these are dialogue or text overlays
     .replace(new RegExp(`${Q_OPEN}${Q_INNER}{2,}${Q_CLOSE}`, 'g'), '')
-    // "Text: something" / "Title: something" etc. — with or without quotes
-    .replace(/\b(?:text|title|headline|caption|subtitle|tagline|heading)\s*:\s*[^.;\n]*/gi, '')
-    // "overlay" anything
-    .replace(/\boverlay\b[^.;\n]*/gi, '')
-    // "on-screen text/words"
-    .replace(/on[- ]?screen\s+(?:text|words?)\b[^.;]*/gi, '')
-    // "text appears" / "text reads" / "text saying" / "text floats"
-    .replace(/\btext\s+(?:appear|read|say|float|fade|slide|pop|show|display)\w*\b[^.;]*/gi, '')
-    // "showing text" / "displaying text" / "featuring text"
-    .replace(/(?:show(?:ing|s)?|display(?:ing|s)?|featuring?)\s+(?:the\s+)?(?:text|words?|title|caption)\b[^.;]*/gi, '')
-    // "words appear" / "words float"
-    .replace(/\bwords?\s+(?:appear|float|fade|slide|pop|show)\w*\b[^.;]*/gi, '')
-    // "with text" anything
-    .replace(/with\s+(?:the\s+)?text\b[^.;]*/gi, '')
-    // "narration:" / "voiceover:" lines (dialogue already extracted separately)
-    .replace(/(?:narrat(?:ion|or)|voiceover|voice[- ]?over|speaker)\s*:\s*[^.;\n]*/gi, '')
+    // ANY colon pattern — "anything: content" looks like a label/title card to fal.ai.
+    // This is aggressive but necessary: fal.ai renders colon-separated text as on-screen labels.
+    .replace(/[^.;\n]{1,50}:\s*[^.;\n]*/g, '')
     // Numbered list items (e.g., "1. Stop using lemons" or "1) Do this") — look like captions
     .replace(/\b\d+[.)]\s+[^.;\n]*/g, '')
+    // Phrases describing visible text in the scene — the model renders what it thinks is "in the scene"
+    .replace(/\b(?:reading|reads|labeled|labelled|engraved|printed|written|stamped|inscribed|says?|showing|displaying)\s+[^.;\n]*/gi, '')
+    // Entire clause containing text-bearing objects — poster, sign, banner, board, label etc.
+    // Remove the full clause (between periods/semicolons) so no dangling fragments remain
+    .replace(/[^.;]*\b(?:poster|sign|banner|billboard|placard|board|screen|label|badge|sticker|card)\b[^.;]*/gi, '')
+    // "overlay" / "on-screen" / "text" as standalone concept — remove entire clause
+    .replace(/\b(?:overlay|on[- ]?screen|watermark|subtitle|caption|title card)\b[^.;]*/gi, '')
+    // The word "text" in any context (standalone or compound) — too risky for video
+    .replace(/\btext\b[^.;]*/gi, '')
+    // "narration:" / "voiceover:" lines (dialogue already extracted separately)
+    .replace(/(?:narrat(?:ion|or)|voiceover|voice[- ]?over|speaker)\b[^.;\n]*/gi, '')
     // Hashtag-style text (#skincare, #wellness)
     .replace(/#\w+/g, '')
-    // "Label:" patterns — any word followed by colon then content looks like a title card
-    .replace(/\b[A-Z][a-zA-Z]+\s*:\s*[^.;\n]*/g, '')
+    // ALL-CAPS words (3+ chars) — look like labels/headings
+    .replace(/\b[A-Z]{3,}\b/g, '')
+    // Clean up: orphaned short fragments (< 15 chars between periods are likely artifacts)
+    .replace(/\.\s*[^.]{1,14}\s*\./g, '.')
+    // Clean up: orphaned periods, multiple spaces, leading/trailing dots
+    .replace(/\.\s*\.+/g, '.')
     .replace(/\s{2,}/g, ' ')
+    .replace(/^\s*\.\s*/, '')
     .trim();
 }
 

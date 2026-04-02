@@ -159,6 +159,15 @@ export async function generateVideo(
 
   const prompt = `Cinematic footage about ${videoTheme}. ${visualDirection}.${speechPart} Smooth gentle camera movements, soft natural lighting, high production quality. Feature women throughout.`;
 
+  // Debug: log the exact prompt and what was stripped so we can trace text triggers
+  console.log('[VIDEO PROMPT DEBUG]', JSON.stringify({
+    originalVisualDesc: entry.visualDescription.slice(0, 500),
+    strippedVisualDir: visualDirection.slice(0, 500),
+    topicTheme,
+    videoTheme,
+    fullPrompt: prompt,
+  }, null, 2));
+
   let result;
   try {
     result = await fal.subscribe('fal-ai/ltx-2.3/text-to-video', {
