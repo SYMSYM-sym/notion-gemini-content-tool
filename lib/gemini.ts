@@ -94,7 +94,7 @@ export async function generateImages(
 export async function generateVideo(
   entry: NotionEntry,
 ): Promise<{ videoUrl: string; prompt: string }> {
-  const falKey = process.env.FAL_KEY;
+  const falKey = process.env.FAL_KEY?.trim();
   if (!falKey) throw new Error('FAL_KEY is not configured');
 
   // Dynamic import to avoid client-side bundling issues
