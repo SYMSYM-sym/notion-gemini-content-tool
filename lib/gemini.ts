@@ -134,22 +134,26 @@ export async function generateVideo(
   const neededSeconds = totalDialogueWords > 0 ? Math.ceil(totalDialogueWords / 2.5) + 3 : 8;
   const duration = allowedDurations.find((d) => d >= neededSeconds) ?? 10;
 
-  // IMPORTANT: Do NOT include exact dialogue words in the prompt.
-  // fal.ai LTX v2.3 renders any text it sees in the prompt as on-screen text.
-  // Instead, describe the speech topic abstractly so the audio model generates
-  // relevant narration without giving the video model words to render.
-  const speechInstruction = spokenDialogue.length > 0
-    ? `\nA woman speaks naturally about ${entry.topic.toLowerCase()}. Her voice is warm and conversational. She talks for the full ${duration} seconds.`
-    : '\nAmbient sounds and gentle background music only. No speech.';
+  // CRITICAL: fal.ai LTX v2.3 renders ANY text-like content as on-screen text.
+  // - Do NOT use labels like "Topic:" or "Visual direction:" — they look like title cards
+  // - Do NOT include negative text instructions ("no text", "no captions") — the model
+  //   becomes text-aware and renders garbled versions of those very words
+  // - Do NOT repeat the topic in speech instructions
+  // - Keep the prompt as a pure cinematic shot description with no structured data
 
-  const prompt = `Professional short video with no text visible anywhere. No titles, no captions, no subtitles, no watermarks, no labels, no words, no letters, no numbers on screen at any point.
+  // Convert topic to a simple lowercase thematic phrase — strip subtitle structures,
+  // punctuation, and anything that resembles a title/heading
+  const theme = entry.topic
+    .replace(/:.*$/, '')        // Remove subtitle after colon
+    .replace(/[?!""''":]/g, '') // Remove punctuation that signals titles
+    .trim()
+    .toLowerCase();
 
-Topic: ${entry.topic}
-Visual direction: ${visualDirection}
-${speechInstruction}
+  const speechPart = spokenDialogue.length > 0
+    ? ' A warm female voice narrates throughout.'
+    : ' Ambient sounds and gentle background music.';
 
-Smooth, gentle camera movements. High production quality.
-When depicting people, feature WOMEN — this content is for a female-focused audience.`;
+  const prompt = `Cinematic footage about ${theme}. ${visualDirection}.${speechPart} Smooth gentle camera movements, soft natural lighting, high production quality. Feature women throughout.`;
 
   let result;
   try {

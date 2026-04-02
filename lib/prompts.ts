@@ -58,6 +58,12 @@ export function stripTextForVideo(description: string): string {
     .replace(/with\s+(?:the\s+)?text\b[^.;]*/gi, '')
     // "narration:" / "voiceover:" lines (dialogue already extracted separately)
     .replace(/(?:narrat(?:ion|or)|voiceover|voice[- ]?over|speaker)\s*:\s*[^.;\n]*/gi, '')
+    // Numbered list items (e.g., "1. Stop using lemons" or "1) Do this") — look like captions
+    .replace(/\b\d+[.)]\s+[^.;\n]*/g, '')
+    // Hashtag-style text (#skincare, #wellness)
+    .replace(/#\w+/g, '')
+    // "Label:" patterns — any word followed by colon then content looks like a title card
+    .replace(/\b[A-Z][a-zA-Z]+\s*:\s*[^.;\n]*/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
