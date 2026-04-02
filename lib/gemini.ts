@@ -135,22 +135,22 @@ export async function generateVideo(
   const allowedDurations = [6, 8, 10, 12, 14, 16, 18, 20];
   const duration = allowedDurations.find((d) => d >= neededSeconds) ?? 20;
 
-  const dialogueInstruction = spokenDialogue.length > 0
-    ? `\nSPOKEN DIALOGUE (a female voice must say ALL of these lines completely, do not cut off mid-sentence):
-${spokenDialogue.map((d, i) => `${i + 1}. "${d}"`).join('\n')}
-CRITICAL: Every line of dialogue above MUST be spoken in full. Pace the speech so all dialogue fits within the ${duration}-second video. Do NOT rush, skip, or truncate any words. Do NOT add any other narration or voiceover beyond these lines.`
-    : '\nNo spoken dialogue — ambient sounds and music only.';
+  // IMPORTANT: Do NOT include exact dialogue words in the prompt.
+  // fal.ai LTX v2.3 renders any text it sees in the prompt as on-screen text.
+  // Instead, describe the speech topic abstractly so the audio model generates
+  // relevant narration without giving the video model words to render.
+  const speechInstruction = spokenDialogue.length > 0
+    ? `\nA woman speaks naturally about ${entry.topic.toLowerCase()}. Her voice is warm and conversational. She talks for the full ${duration} seconds.`
+    : '\nAmbient sounds and gentle background music only. No speech.';
 
-  const prompt = `Professional short video. Purely visual — absolutely NO text, titles, captions, subtitles, watermarks, labels, or any visible words/letters/numbers anywhere in any frame.
+  const prompt = `Professional short video with no text visible anywhere. No titles, no captions, no subtitles, no watermarks, no labels, no words, no letters, no numbers on screen at any point.
 
 Topic: ${entry.topic}
 Visual direction: ${visualDirection}
-${dialogueInstruction}
+${speechInstruction}
 
 Smooth, gentle camera movements. High production quality.
-Include ambient music or gentle background sounds.
-When depicting people, feature WOMEN — this content is for a female-focused audience.
-All dialogue is AUDIO ONLY — never render spoken words as on-screen text.`;
+When depicting people, feature WOMEN — this content is for a female-focused audience.`;
 
   let result;
   try {
