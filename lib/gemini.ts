@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NotionEntry, VerificationResult } from './types';
-import { buildSlidePrompts, getAspectRatio, stripTextForVideo } from './prompts';
+import { buildSlidePrompts, getAspectRatio } from './prompts';
 
 function getGenAI(): GoogleGenerativeAI {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -106,80 +106,61 @@ export async function generateVideo(
   const ct = entry.contentType.toLowerCase();
   const aspectRatio = ct.includes('9:16') || ct.includes('reel') || ct.includes('video') ? '9:16' : '16:9';
 
-  // Extract spoken dialogue from ANY type of quotes in the visual description:
-  // single quotes: '...'  double quotes: "..."
-  // smart quotes: \u2018...\u2019  \u201C...\u201D
-  // Also match Narration/Voiceover/Speaker prefixed lines
-  const quotePattern = /(?:[""\u201C])([^""\u201D]{5,})(?:[""\u201D])|(?:['\u2018])([^'\u2019]{5,})(?:['\u2019])/g;
-  const narratorPattern = /(?:narrat(?:ion|or)|voiceover|voice[- ]?over|speaker|says?|speak(?:ing|s)?)\s*:\s*["'\u201C\u2018]?([^"'\u201D\u2019\n.]{5,})["'\u201D\u2019]?/gi;
-
-  const dialogueSet = new Set<string>();
-  let match;
-  while ((match = quotePattern.exec(entry.visualDescription)) !== null) {
-    const text = (match[1] || match[2]).trim();
-    if (text) dialogueSet.add(text);
-  }
-  while ((match = narratorPattern.exec(entry.visualDescription)) !== null) {
-    const text = match[1].trim();
-    if (text) dialogueSet.add(text);
-  }
-  const spokenDialogue = Array.from(dialogueSet);
-
-  // Aggressively strip the visual description for video — remove all quoted content
-  // (dialogue already extracted above), text/overlay instructions, and anything
-  // that could cause fal.ai to render on-screen text
-  const visualDirection = stripTextForVideo(entry.visualDescription);
-
-  // fal.ai LTX v2.3 only accepts duration: 6, 8, or 10 seconds.
-  // When dialogue exists, always use max duration (10s) so speech isn't cut off.
-  const duration = spokenDialogue.length > 0 ? 10 : 8;
-
   // ═══════════════════════════════════════════════════════════════════════════
-  // CRITICAL: fal.ai LTX v2.3 renders ANY text-like content as on-screen text.
+  // WHY WE USE GEMINI TO REWRITE THE PROMPT:
   //
-  // TEXT APPEARS IN TWO FORMS:
-  //   1. Subtitle overlays — triggered by narration/voice/speech mentions
-  //   2. Text on props (cards, signs, screens) — triggered by topic words like
-  //      "timeline", "recap", "tips" and by "Feature women" + educational context
-  //      which makes the model show a woman presenting/holding cards
+  // fal.ai LTX v2.3 renders ANY text-like content as on-screen text. This
+  // includes subtitles, title cards, and text on physical props (cards, signs,
+  // screens, papers). The visual descriptions from Notion are written for full
+  // production videos with presenters, demonstrations, and product labels —
+  // they are fundamentally incompatible with fal.ai's text-rendering behavior.
   //
-  // RULES:
-  //   - Do NOT put the topic/theme in the prompt — words like "timeline", "recap",
-  //     "individuality" make the model generate title cards or presentation scenes
-  //   - Do NOT mention narration, voice, speech, or dialogue
-  //   - Do NOT include negative text instructions ("no text") — makes it worse
-  //   - Do NOT say "Feature women" — combine with any topic and fal.ai generates
-  //     a woman holding/presenting cards with text
-  //   - Keep the prompt as a PURE visual/atmospheric shot description
-  //   - Cap length — long prompts give fal.ai more material to render as text
+  // Regex-based stripping CANNOT solve this because:
+  //   - Natural language has infinite ways to describe "person shows text"
+  //   - Heavy stripping mangles the prompt → fal.ai generates random scenes
+  //   - Random scenes from fal.ai often include text anyway
+  //
+  // Solution: Use Gemini to rewrite the description into PURE cinematic
+  // atmosphere — colors, lighting, textures, mood, camera angles. Gemini
+  // understands context and can reliably eliminate ALL text triggers while
+  // preserving the emotional essence of the scene.
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Cap visual direction — short prompt = less text-trigger surface area
-  const maxVisualLen = 180;
-  const trimmedVisual = visualDirection.length > maxVisualLen
-    ? visualDirection.slice(0, visualDirection.lastIndexOf(' ', maxVisualLen)).replace(/[,.]$/, '')
-    : visualDirection;
+  const genAI = getGenAI();
+  const rewriteModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-  // Build a purely atmospheric/cinematic prompt — no topic, no people-doing-things
-  const rawPrompt = trimmedVisual
-    ? `Cinematic b-roll. ${trimmedVisual}. Slow smooth camera drift, soft golden-hour lighting, shallow depth of field, warm color grading.`
-    : 'Cinematic b-roll. Gentle atmospheric lifestyle footage. Slow smooth camera drift, soft golden-hour lighting, shallow depth of field, warm color grading.';
+  const themeHint = theme || entry.topic;
+  const rewriteResult = await rewriteModel.generateContent(
+    `Rewrite the following video description into a 2-sentence cinematic b-roll prompt for an AI video generator.
 
-  // Final safety-net: scrub the assembled prompt one more time
-  const prompt = rawPrompt
-    .replace(/["'\u201C\u2018][^"'\u201C\u201D\u2018\u2019]{2,}["'\u201D\u2019]/g, '')
-    .replace(/[^.;\n]{1,50}:\s*[^.;\n]*/g, '')
-    .replace(/\b(?:narrat\w*|voiceover|voice[- ]?over|speech|speaks?|says?|dialogue|subtitle|caption|letter(?:ing)?|text|reading|reads|holding|presenting|showing|displaying)\b[^.;]*/gi, '')
-    .replace(/[^.;]*\b(?:card|sign|paper|book|screen|poster|board|note|phone|tablet|laptop|whiteboard)\b[^.;]*/gi, '')
-    .replace(/\s{2,}/g, ' ')
-    .replace(/\.\s*\.+/g, '.')
-    .trim();
+STRICT RULES — the output MUST follow ALL of these:
+- Describe ONLY: colors, lighting, textures, fabrics, nature, atmospheric mood, camera movement, depth of field
+- NEVER mention: people doing actions, hands, holding anything, objects with writing, screens, cards, papers, books, signs, labels, products, bottles, packages, brands, text, words, letters, titles, captions, subtitles, narration, voiceover, speech, dialogue
+- NEVER use words that could appear as on-screen text (product names, category names, labels)
+- NO people performing actions like presenting, demonstrating, pointing, flipping, opening, showing
+- Focus on close-up textures, soft backgrounds, gentle motion, atmospheric details
+- Keep it under 120 words
+- Output ONLY the rewritten prompt, nothing else
 
-  // Debug: log the exact prompt and what was stripped so we can trace text triggers
+Theme: ${themeHint}
+
+Original description:
+${entry.visualDescription.slice(0, 600)}`
+  );
+
+  const rewritten = rewriteResult.response.text()?.trim() || '';
+
+  // Use max duration (10s) to ensure speech/audio has room to complete full thoughts
+  const duration = 10;
+
+  const prompt = rewritten
+    ? `Cinematic b-roll. ${rewritten.slice(0, 250)}. Slow smooth camera drift, shallow depth of field, warm color grading.`
+    : 'Cinematic b-roll. Soft warm light filtering through sheer curtains onto natural textures and fabrics. Gentle bokeh highlights drift across the frame. Slow smooth camera drift, shallow depth of field, warm color grading.';
+
+  // Debug: log so we can verify Gemini rewrites are clean
   console.log('[VIDEO PROMPT DEBUG]', JSON.stringify({
     originalVisualDesc: entry.visualDescription.slice(0, 500),
-    strippedVisualDir: visualDirection.slice(0, 500),
-    trimmedVisual,
+    geminiRewrite: rewritten.slice(0, 500),
     fullPrompt: prompt,
   }, null, 2));
 
