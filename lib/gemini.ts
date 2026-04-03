@@ -109,21 +109,15 @@ export async function generateVideo(
   // ═══════════════════════════════════════════════════════════════════════════
   // WHY WE USE GEMINI TO REWRITE THE PROMPT:
   //
-  // fal.ai LTX v2.3 renders ANY text-like content as on-screen text. This
-  // includes subtitles, title cards, and text on physical props (cards, signs,
-  // screens, papers). The visual descriptions from Notion are written for full
-  // production videos with presenters, demonstrations, and product labels —
-  // they are fundamentally incompatible with fal.ai's text-rendering behavior.
+  // fal.ai LTX v2.3 renders ANY text-like content as on-screen text — including
+  // subtitles, title cards, and text on physical props (cards, signs, screens).
+  // Regex-based stripping cannot solve this: natural language has infinite ways
+  // to describe text-bearing scenes, and heavy stripping mangles prompts.
   //
-  // Regex-based stripping CANNOT solve this because:
-  //   - Natural language has infinite ways to describe "person shows text"
-  //   - Heavy stripping mangles the prompt → fal.ai generates random scenes
-  //   - Random scenes from fal.ai often include text anyway
-  //
-  // Solution: Use Gemini to rewrite the description into PURE cinematic
-  // atmosphere — colors, lighting, textures, mood, camera angles. Gemini
-  // understands context and can reliably eliminate ALL text triggers while
-  // preserving the emotional essence of the scene.
+  // Solution: Gemini rewrites the visual description to stay FAITHFUL to the
+  // original scene (same people, actions, setting, objects, mood) while only
+  // neutralizing text triggers — removing specific words/labels/names that would
+  // appear ON objects, and replacing text-bearing props with their visual form.
   // ═══════════════════════════════════════════════════════════════════════════
 
   const genAI = getGenAI();
@@ -131,21 +125,22 @@ export async function generateVideo(
 
   const themeHint = theme || entry.topic;
   const rewriteResult = await rewriteModel.generateContent(
-    `Rewrite the following video description into a 2-sentence cinematic b-roll prompt for an AI video generator.
+    `Rewrite the following video description for an AI video generator that CANNOT render readable text. Keep the scene as close to the original as possible — same people, actions, setting, objects, mood, and lighting. ONLY remove elements that would cause visible text or writing to appear on screen.
 
-STRICT RULES — the output MUST follow ALL of these:
-- Describe ONLY: colors, lighting, textures, fabrics, nature, atmospheric mood, camera movement, depth of field
-- NEVER mention: people doing actions, hands, holding anything, objects with writing, screens, cards, papers, books, signs, labels, products, bottles, packages, brands, text, words, letters, titles, captions, subtitles, narration, voiceover, speech, dialogue
-- NEVER use words that could appear as on-screen text (product names, category names, labels)
-- NO people performing actions like presenting, demonstrating, pointing, flipping, opening, showing
-- Focus on close-up textures, soft backgrounds, gentle motion, atmospheric details
-- Keep it under 120 words
+RULES:
+- KEEP: people, their actions, settings, objects, props, mood, color palette, camera angles, lighting — stay faithful to the original scene
+- REMOVE: any specific words, names, labels, categories, or phrases that would appear ON objects (e.g. "labeled puppy, adult, senior" → just say "colorful bottles"). Never specify what is written on anything.
+- REMOVE: narration, voiceover, dialogue, speech instructions — the video generator handles audio separately
+- REPLACE text-bearing props with their visual equivalent: "sign reading X" → "a sign", "card that says X" → "a card", "labeled bottles" → "bottles with colorful packaging"
+- NEVER include quotation marks, numbered lists, colon-separated labels, or hashtags
+- NEVER say "text", "caption", "subtitle", "title", "words", "letters", "reading", "labeled", or "written"
+- Keep it under 3 sentences and under 150 words
 - Output ONLY the rewritten prompt, nothing else
 
 Theme: ${themeHint}
 
 Original description:
-${entry.visualDescription.slice(0, 600)}`
+${entry.visualDescription.slice(0, 800)}`
   );
 
   const rewritten = rewriteResult.response.text()?.trim() || '';
@@ -153,11 +148,12 @@ ${entry.visualDescription.slice(0, 600)}`
   // Use max duration (10s) to ensure speech/audio has room to complete full thoughts
   const duration = 10;
 
+  // Keep the prompt concise — long prompts give fal.ai more surface area to render text
   const prompt = rewritten
-    ? `Cinematic b-roll. ${rewritten.slice(0, 250)}. Slow smooth camera drift, shallow depth of field, warm color grading.`
-    : 'Cinematic b-roll. Soft warm light filtering through sheer curtains onto natural textures and fabrics. Gentle bokeh highlights drift across the frame. Slow smooth camera drift, shallow depth of field, warm color grading.';
+    ? rewritten.slice(0, 350)
+    : 'Cinematic lifestyle footage with soft natural lighting, warm tones, and gentle camera movement.';
 
-  // Debug: log so we can verify Gemini rewrites are clean
+  // Debug: log so we can verify Gemini rewrites stay faithful but text-free
   console.log('[VIDEO PROMPT DEBUG]', JSON.stringify({
     originalVisualDesc: entry.visualDescription.slice(0, 500),
     geminiRewrite: rewritten.slice(0, 500),
