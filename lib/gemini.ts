@@ -125,17 +125,22 @@ export async function generateVideo(
 
   const themeHint = theme || entry.topic;
   const rewriteResult = await rewriteModel.generateContent(
-    `Rewrite the following video description for an AI video generator that CANNOT render readable text. Keep the scene as close to the original as possible — same people, actions, setting, objects, mood, and lighting. ONLY remove elements that would cause visible text or writing to appear on screen.
+    `You are rewriting a video description for an AI video generator (fal.ai) that CANNOT render readable text. Your job is to create a visually compelling prompt that captures the SUBJECT MATTER and EMOTIONAL TONE of the original — not necessarily the exact staging.
+
+IMPORTANT: Many descriptions describe someone "presenting information" or "showing text/cards/labels." Since the video generator cannot show readable text, you must REIMAGINE these as real-world visual scenes about the same subject. For example:
+- "A creator holds up age category cards (Puppy, Adult, Senior)" → "Close-up montage of a playful puppy, a calm adult dog, and a gentle senior dog resting, each in warm home settings"
+- "Text flashes showing dental exam tips" → "A veterinarian gently examining a dog's teeth in a bright clinic"
+- "A woman presents her skincare routine steps" → "Close-up of hands applying serum to glowing skin, soft bathroom lighting, steam rising"
 
 RULES:
-- KEEP: people, their actions, settings, objects, props, mood, color palette, camera angles, lighting — stay faithful to the original scene
-- REMOVE: any specific words, names, labels, categories, or phrases that would appear ON objects (e.g. "labeled puppy, adult, senior" → just say "colorful bottles"). Never specify what is written on anything.
-- REMOVE: narration, voiceover, dialogue, speech instructions — the video generator handles audio separately
-- REPLACE text-bearing props with their visual equivalent: "sign reading X" → "a sign", "card that says X" → "a card", "labeled bottles" → "bottles with colorful packaging"
-- NEVER include quotation marks, numbered lists, colon-separated labels, or hashtags
-- NEVER say "text", "caption", "subtitle", "title", "words", "letters", "reading", "labeled", or "written"
-- Keep it under 3 sentences and under 150 words
-- Output ONLY the rewritten prompt, nothing else
+1. Identify the SUBJECT (what is the content actually about — pets? skincare? wellness?)
+2. Create a vivid, cinematic scene showing that subject in action — real moments, not presentations
+3. Include specific visual details: lighting, colors, camera angles, textures, setting
+4. Feature women when the scene includes people — this is for a female-focused audience
+5. NEVER include: readable text, labels, captions, subtitles, titles, narration instructions, dialogue, quotation marks, numbered lists, hashtags, colon-separated labels
+6. NEVER describe someone presenting, holding up items to camera, pointing at things, or demonstrating
+7. Keep it 2-3 sentences, under 120 words
+8. Output ONLY the rewritten prompt, nothing else
 
 Theme: ${themeHint}
 
@@ -150,8 +155,8 @@ ${entry.visualDescription.slice(0, 800)}`
 
   // Keep the prompt concise — long prompts give fal.ai more surface area to render text
   const prompt = rewritten
-    ? rewritten.slice(0, 350)
-    : 'Cinematic lifestyle footage with soft natural lighting, warm tones, and gentle camera movement.';
+    ? rewritten.slice(0, 400)
+    : `Cinematic lifestyle footage related to ${themeHint.toLowerCase()}. Soft natural lighting, warm tones, shallow depth of field, gentle camera movement.`;
 
   // Debug: log so we can verify Gemini rewrites stay faithful but text-free
   console.log('[VIDEO PROMPT DEBUG]', JSON.stringify({
