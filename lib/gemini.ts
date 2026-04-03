@@ -37,10 +37,10 @@ async function generateSingleImage(
     console.error('Gemini 2.5 Flash image gen failed:', e);
   }
 
-  // Fallback: Gemini 2.0 Flash
+  // Fallback: Gemini 2.5 Flash
   try {
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         // @ts-expect-error - responseModalities is valid for image generation
         responseModalities: ['TEXT', 'IMAGE'],
@@ -121,7 +121,7 @@ export async function generateVideo(
   // ═══════════════════════════════════════════════════════════════════════════
 
   const genAI = getGenAI();
-  const rewriteModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const rewriteModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   const themeHint = theme || entry.topic;
   const rewriteResult = await rewriteModel.generateContent(
