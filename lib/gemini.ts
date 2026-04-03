@@ -148,9 +148,10 @@ EXAMPLES of correct rewrites:
 Only reimagine the scene when the ENTIRE description is nothing but text/graphics with no physical scene at all.
 
 Feature women when the scene includes people.
+Weave the creative theme naturally into the scene's mood, color palette, and visual style — the video should clearly feel like it belongs to this theme.
 Keep it 2-3 sentences. Output ONLY the rewritten prompt.
 
-Theme: ${themeHint}
+Creative theme: ${themeHint}
 
 Original description:
 ${entry.visualDescription.slice(0, 800)}`
@@ -161,10 +162,12 @@ ${entry.visualDescription.slice(0, 800)}`
   // Use max duration (10s) to ensure speech/audio has room to complete full thoughts
   const duration = 10;
 
-  // Keep the prompt concise — long prompts give fal.ai more surface area to render text
+  // Include the theme in the final prompt so fal.ai generates visuals aligned with it.
+  // Use natural phrasing to avoid colon patterns that trigger text rendering.
+  const themeLower = themeHint.toLowerCase();
   const prompt = rewritten
-    ? rewritten.slice(0, 400)
-    : `Cinematic lifestyle footage related to ${themeHint.toLowerCase()}. Soft natural lighting, warm tones, shallow depth of field, gentle camera movement.`;
+    ? `${themeLower} themed cinematic footage. ${rewritten.slice(0, 380)}`
+    : `Cinematic lifestyle footage evoking ${themeLower}. Soft natural lighting, warm tones, shallow depth of field, gentle camera movement.`;
 
   // Debug: log so we can verify Gemini rewrites stay faithful but text-free
   console.log('[VIDEO PROMPT DEBUG]', JSON.stringify({
