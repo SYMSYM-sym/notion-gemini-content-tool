@@ -34,40 +34,59 @@ export function stripTextInstructions(description: string): string {
 }
 
 /**
- * Aggressive text stripping for VIDEOS. Videos must have zero on-screen text,
- * so this strips everything that could cause a video model to render text:
- * all quoted content, overlay/text/title mentions, etc.
+ * Aggressive text stripping for VIDEOS. fal.ai LTX v2.3 renders text in two ways:
+ *   1. Subtitle/caption overlays — triggered by dialogue, narration, colon patterns
+ *   2. Text on scene objects (cards, signs, screens) — triggered by educational/
+ *      presentation language and any object that could physically bear text
+ *
+ * This function must eliminate BOTH vectors. When in doubt, strip it out —
+ * a slightly vague visual description is far better than one that triggers text.
  */
 export function stripTextForVideo(description: string): string {
   return description
-    // Remove ALL quoted content (straight and smart quotes) — these are dialogue or text overlays
+    // ── Phase 1: Remove structured text patterns ──
+    // ALL quoted content — dialogue, overlay instructions, emphasis
     .replace(new RegExp(`${Q_OPEN}${Q_INNER}{2,}${Q_CLOSE}`, 'g'), '')
-    // ANY colon pattern — "anything: content" looks like a label/title card to fal.ai.
-    // This is aggressive but necessary: fal.ai renders colon-separated text as on-screen labels.
+    // ANY colon pattern — "anything: content" renders as title cards
     .replace(/[^.;\n]{1,50}:\s*[^.;\n]*/g, '')
-    // Numbered list items (e.g., "1. Stop using lemons" or "1) Do this") — look like captions
+    // Numbered/bulleted list items — look like captions
     .replace(/\b\d+[.)]\s+[^.;\n]*/g, '')
-    // Phrases describing visible text in the scene — the model renders what it thinks is "in the scene"
-    .replace(/\b(?:reading|reads|labeled|labelled|engraved|printed|written|stamped|inscribed|says?|showing|displaying)\s+[^.;\n]*/gi, '')
-    // Entire clause containing text-bearing objects — poster, sign, banner, board, label etc.
-    // Remove the full clause (between periods/semicolons) so no dangling fragments remain
-    .replace(/[^.;]*\b(?:poster|sign|banner|billboard|placard|board|screen|label|badge|sticker|card)\b[^.;]*/gi, '')
-    // "overlay" / "on-screen" / "text" as standalone concept — remove entire clause
-    .replace(/\b(?:overlay|on[- ]?screen|watermark|subtitle|caption|title card)\b[^.;]*/gi, '')
-    // The word "text" in any context (standalone or compound) — too risky for video
+    // Dash-prefixed list items
+    .replace(/(?:^|\n)\s*[-–—•]\s+[^\n]*/g, '')
+
+    // ── Phase 2: Remove text-rendering action words ──
+    // Verbs that describe visible text or presenting information — the model renders what it reads
+    .replace(/\b(?:reading|reads|labeled|labelled|engraved|printed|written|stamped|inscribed|says?|showing|displaying|presenting|holding up|flipping|revealing|pointing (?:to|at)|turning pages?|opening|unfolding)\s+[^.;\n]*/gi, '')
+
+    // ── Phase 3: Remove ALL text-bearing objects ──
+    // Any clause containing an object that could physically display text.
+    // This is the most critical rule — fal.ai loves to generate people holding/showing these.
+    .replace(/[^.;]*\b(?:poster|sign|banner|billboard|placard|board|screen|label|badge|sticker|card|paper|note|book|journal|notebook|magazine|phone|tablet|laptop|whiteboard|flashcard|cue card|page|document|letter|envelope|menu|chart|graph|diagram|infographic|checklist|recipe|calendar|planner|clipboard|folder|binder|pamphlet|brochure|flyer|ticket|certificate|diploma|scroll|monitor|display|tv|television)\b[^.;]*/gi, '')
+
+    // ── Phase 4: Remove educational/presentation language ──
+    // Topic words that make fal.ai generate "someone teaching/explaining" scenes with text props
+    .replace(/\b(?:tips?|steps?|routine|guide|how[- ]?to|tutorial|demonstrat\w*|summar\w*|recap\w*|overview|agenda|timeline|schedule|breakdown|ingredients?|product names?|brand names?|checklist|lesson|lecture|workshop|webinar|presentation|slideshow|bullet points?)\b[^.;]*/gi, '')
+
+    // ── Phase 5: Remove text/overlay concept words ──
+    .replace(/\b(?:overlay|on[- ]?screen|watermark|subtitle|caption|title card|heading|headline|tagline|slogan|motto|quote|citation|footnote|annotation|callout)\b[^.;]*/gi, '')
     .replace(/\btext\b[^.;]*/gi, '')
-    // "narration:" / "voiceover:" lines (dialogue already extracted separately)
-    .replace(/(?:narrat(?:ion|or)|voiceover|voice[- ]?over|speaker)\b[^.;\n]*/gi, '')
-    // Hashtag-style text (#skincare, #wellness)
+
+    // ── Phase 6: Remove speech/narration instructions ──
+    .replace(/\b(?:narrat\w*|voiceover|voice[- ]?over|speaker|speech|speaks?|dialogue|monologue|script)\b[^.;\n]*/gi, '')
+
+    // ── Phase 7: Remove misc text triggers ──
+    // Hashtags
     .replace(/#\w+/g, '')
-    // ALL-CAPS words (3+ chars) — look like labels/headings
+    // ALL-CAPS words (3+ chars) — render as labels/headings
     .replace(/\b[A-Z]{3,}\b/g, '')
-    // Clean up: orphaned short fragments (< 15 chars between periods are likely artifacts)
-    .replace(/\.\s*[^.]{1,14}\s*\./g, '.')
-    // Clean up: orphaned periods, multiple spaces, leading/trailing dots
-    .replace(/\.\s*\.+/g, '.')
-    .replace(/\s{2,}/g, ' ')
-    .replace(/^\s*\.\s*/, '')
+    // Comma-separated short phrase lists — look like subtitle lines
+    .replace(/(?:(?:^|[.;])\s*)(?:[^,.;]{3,30},\s*){3,}[^,.;]{3,30}(?=[.;]|$)/g, '')
+
+    // ── Phase 8: Cleanup ──
+    .replace(/\.\s*[^.]{1,14}\s*\./g, '.')  // orphaned short fragments
+    .replace(/\.\s*\.+/g, '.')               // orphaned periods
+    .replace(/\s{2,}/g, ' ')                 // multiple spaces
+    .replace(/^\s*\.\s*/, '')                // leading dots
     .trim();
 }
 

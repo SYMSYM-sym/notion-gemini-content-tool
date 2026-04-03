@@ -130,41 +130,56 @@ export async function generateVideo(
   // that could cause fal.ai to render on-screen text
   const visualDirection = stripTextForVideo(entry.visualDescription);
 
-  // fal.ai LTX v2.3 only accepts duration: 6, 8, or 10 seconds
-  const allowedDurations = [6, 8, 10] as const;
-  const totalDialogueWords = spokenDialogue.reduce((sum, d) => sum + d.split(/\s+/).length, 0);
-  const neededSeconds = totalDialogueWords > 0 ? Math.ceil(totalDialogueWords / 2.5) + 3 : 8;
-  const duration = allowedDurations.find((d) => d >= neededSeconds) ?? 10;
+  // fal.ai LTX v2.3 only accepts duration: 6, 8, or 10 seconds.
+  // When dialogue exists, always use max duration (10s) so speech isn't cut off.
+  const duration = spokenDialogue.length > 0 ? 10 : 8;
 
+  // ═══════════════════════════════════════════════════════════════════════════
   // CRITICAL: fal.ai LTX v2.3 renders ANY text-like content as on-screen text.
-  // - Do NOT use labels like "Topic:" or "Visual direction:" — they look like title cards
-  // - Do NOT include negative text instructions ("no text", "no captions") — the model
-  //   becomes text-aware and renders garbled versions of those very words
-  // - Do NOT repeat the topic in speech instructions
-  // - Keep the prompt as a pure cinematic shot description with no structured data
+  //
+  // TEXT APPEARS IN TWO FORMS:
+  //   1. Subtitle overlays — triggered by narration/voice/speech mentions
+  //   2. Text on props (cards, signs, screens) — triggered by topic words like
+  //      "timeline", "recap", "tips" and by "Feature women" + educational context
+  //      which makes the model show a woman presenting/holding cards
+  //
+  // RULES:
+  //   - Do NOT put the topic/theme in the prompt — words like "timeline", "recap",
+  //     "individuality" make the model generate title cards or presentation scenes
+  //   - Do NOT mention narration, voice, speech, or dialogue
+  //   - Do NOT include negative text instructions ("no text") — makes it worse
+  //   - Do NOT say "Feature women" — combine with any topic and fal.ai generates
+  //     a woman holding/presenting cards with text
+  //   - Keep the prompt as a PURE visual/atmospheric shot description
+  //   - Cap length — long prompts give fal.ai more material to render as text
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  // Convert topic to a simple lowercase thematic phrase — strip subtitle structures,
-  // punctuation, and anything that resembles a title/heading.
-  // If a general theme was provided by the user, prefer it over the topic.
-  const topicTheme = entry.topic
-    .replace(/:.*$/, '')        // Remove subtitle after colon
-    .replace(/[?!""''":]/g, '') // Remove punctuation that signals titles
-    .trim()
-    .toLowerCase();
-  const videoTheme = theme ? theme.toLowerCase() : topicTheme;
+  // Cap visual direction — short prompt = less text-trigger surface area
+  const maxVisualLen = 180;
+  const trimmedVisual = visualDirection.length > maxVisualLen
+    ? visualDirection.slice(0, visualDirection.lastIndexOf(' ', maxVisualLen)).replace(/[,.]$/, '')
+    : visualDirection;
 
-  const speechPart = spokenDialogue.length > 0
-    ? ' A warm female voice narrates throughout.'
-    : ' Ambient sounds and gentle background music.';
+  // Build a purely atmospheric/cinematic prompt — no topic, no people-doing-things
+  const rawPrompt = trimmedVisual
+    ? `Cinematic b-roll. ${trimmedVisual}. Slow smooth camera drift, soft golden-hour lighting, shallow depth of field, warm color grading.`
+    : 'Cinematic b-roll. Gentle atmospheric lifestyle footage. Slow smooth camera drift, soft golden-hour lighting, shallow depth of field, warm color grading.';
 
-  const prompt = `Cinematic footage about ${videoTheme}. ${visualDirection}.${speechPart} Smooth gentle camera movements, soft natural lighting, high production quality. Feature women throughout.`;
+  // Final safety-net: scrub the assembled prompt one more time
+  const prompt = rawPrompt
+    .replace(/["'\u201C\u2018][^"'\u201C\u201D\u2018\u2019]{2,}["'\u201D\u2019]/g, '')
+    .replace(/[^.;\n]{1,50}:\s*[^.;\n]*/g, '')
+    .replace(/\b(?:narrat\w*|voiceover|voice[- ]?over|speech|speaks?|says?|dialogue|subtitle|caption|letter(?:ing)?|text|reading|reads|holding|presenting|showing|displaying)\b[^.;]*/gi, '')
+    .replace(/[^.;]*\b(?:card|sign|paper|book|screen|poster|board|note|phone|tablet|laptop|whiteboard)\b[^.;]*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\.\s*\.+/g, '.')
+    .trim();
 
   // Debug: log the exact prompt and what was stripped so we can trace text triggers
   console.log('[VIDEO PROMPT DEBUG]', JSON.stringify({
     originalVisualDesc: entry.visualDescription.slice(0, 500),
     strippedVisualDir: visualDirection.slice(0, 500),
-    topicTheme,
-    videoTheme,
+    trimmedVisual,
     fullPrompt: prompt,
   }, null, 2));
 
