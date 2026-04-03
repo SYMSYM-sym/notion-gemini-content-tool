@@ -10,25 +10,29 @@ const Q_INNER = `[^"'\u201C\u201D\u2018\u2019]`;
 
 /**
  * Strip text/overlay instructions from a visual description for IMAGES.
- * Light-touch: only removes phrases that explicitly ask for rendered text.
- * Preserves style directions and artistic instructions.
+ * Removes explicit text overlay instructions and specific quoted text content
+ * that would render as on-screen text. Preserves style and artistic directions.
  */
 export function stripTextInstructions(description: string): string {
   return description
     // "Text: '...'" or "Text: "..."" — explicit text overlay instructions
     .replace(new RegExp(`\\btext\\s*:\\s*${Q_OPEN}${Q_INNER}+${Q_CLOSE}`, 'gi'), '')
-    // "Title: '...'" etc. — explicit label overlays with quoted content
-    .replace(new RegExp(`\\b(?:title|headline|caption|subtitle|tagline)\\s*:\\s*${Q_OPEN}${Q_INNER}+${Q_CLOSE}`, 'gi'), '')
+    // "Title: '...'" / "Headline: '...'" etc. — explicit label overlays with quoted content
+    .replace(new RegExp(`\\b(?:title|headline|caption|subtitle|tagline|heading|slogan)\\s*:\\s*${Q_OPEN}${Q_INNER}+${Q_CLOSE}`, 'gi'), '')
     // "with text '...'" / "with the text '...'"
     .replace(new RegExp(`with\\s+(?:the\\s+)?text\\s+${Q_OPEN}${Q_INNER}+${Q_CLOSE}`, 'gi'), '')
-    // "text overlay" phrases
+    // "text overlay" / "on-screen text" / "overlay text" phrases
     .replace(/text\s+overlay\b[^.;]*/gi, '')
-    // "on-screen text ..."
     .replace(/on[- ]?screen\s+text\b[^.;]*/gi, '')
-    // "overlay text ..."
     .replace(/overlay\s+text\b[^.;]*/gi, '')
     // "overlay: '...'" — explicit overlay with quoted content
     .replace(new RegExp(`overlay\\s*:\\s*${Q_OPEN}${Q_INNER}+${Q_CLOSE}`, 'gi'), '')
+    // "labeled X, Y, Z" / "labelled" — specific label content
+    .replace(/\b(?:labeled|labelled)\s+[^.;]*/gi, '')
+    // "reading '...'" / "that says '...'" — specific text on objects
+    .replace(new RegExp(`\\b(?:reading|says?|showing)\\s+${Q_OPEN}${Q_INNER}+${Q_CLOSE}`, 'gi'), '')
+    // Hashtags
+    .replace(/#\w+/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
@@ -233,7 +237,7 @@ Requirements:
 - Follow the visual direction EXACTLY — match the described style, mood, scene, and composition precisely
 - Instagram-ready quality with professional lighting and color grading
 - When depicting people, feature WOMEN — this content is for a female-focused audience
-- Do NOT add any text, titles, captions, labels, handles, usernames, or watermarks on the image`;
+- CRITICAL: Do NOT render any text, titles, captions, labels, handles, usernames, watermarks, or written words anywhere on the image — the image must be completely text-free`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -255,10 +259,10 @@ Requirements:
 - This is a DESIGNED GRAPHIC — create a polished, branded design (not a photograph)
 - Follow the visual direction EXACTLY — match the described style, layout, color palette, and artistic approach precisely
 - Aspect ratio: ${aspectRatio}
-- Typography: If the visual direction describes text content, include clean, modern, highly readable text
 - Layout: Well-organized with clear visual hierarchy
 - When depicting people or illustrations, feature WOMEN — this content is for a female-focused audience
-- Instagram-ready, no watermarks, no social media handles or @mentions`;
+- Instagram-ready, no watermarks, no social media handles or @mentions
+- CRITICAL: Do NOT render any text, titles, captions, labels, handles, usernames, watermarks, or written words anywhere on the image — the image must be completely text-free. Use icons, illustrations, and visual elements to communicate instead of words.`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -288,7 +292,8 @@ Requirements:
 - Maintain consistent styling across all slides in this carousel
 - If the description calls for a graphic or illustrated style, create that — not a photograph
 - When depicting people, feature WOMEN — this content is for a female-focused audience
-- Instagram-ready, no watermarks, no social media handles or @mentions`;
+- Instagram-ready, no watermarks, no social media handles or @mentions
+- CRITICAL: Do NOT render any text, titles, captions, labels, handles, usernames, watermarks, or written words anywhere on the image — the image must be completely text-free. Use icons, illustrations, and visual elements to communicate instead of words.`;
 
     return appendFeedback(prompt, previousFeedback);
   });
@@ -318,7 +323,7 @@ Requirements:
 - Add a subtle cinematic feel to indicate this is for video
 - When depicting people, feature WOMEN — this content is for a female-focused audience
 - Instagram-ready, no watermarks
-- Do NOT add any text, titles, captions, labels, handles, or usernames on the image`;
+- CRITICAL: Do NOT render any text, titles, captions, labels, handles, usernames, watermarks, or written words anywhere on the image — the image must be completely text-free`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -341,7 +346,7 @@ Requirements:
 - Bold, attention-grabbing visuals
 - When depicting people, feature WOMEN — this content is for a female-focused audience
 - Instagram-ready, no watermarks
-- Do NOT add any text, titles, captions, labels, handles, or usernames on the image`;
+- CRITICAL: Do NOT render any text, titles, captions, labels, handles, usernames, watermarks, or written words anywhere on the image — the image must be completely text-free`;
 
   return appendFeedback(prompt, previousFeedback);
 }
@@ -396,7 +401,7 @@ Score the image 1-10 on how well it matches the instructions. The PRIMARY criter
 Secondary criteria (20% of the score):
 - Is it high quality and Instagram-ready?
 - Does it avoid unwanted elements (watermarks, distortion, wrong aspect ratio, social media handles)?
-- If visible text/watermarks appear on the image, note it in unwanted_elements and deduct 1 point
+- If ANY visible text, words, letters, labels, watermarks, or writing appear anywhere on the image, note it in unwanted_elements and deduct 3 points — text-free output is a hard requirement
 ${category === 'video_cover' ? '- For video thumbnails: DO NOT penalize for being a static image. Score based on whether it makes a good thumbnail for the described video content.' : ''}
 
 Respond with JSON only:
