@@ -125,22 +125,30 @@ export async function generateVideo(
 
   const themeHint = theme || entry.topic;
   const rewriteResult = await rewriteModel.generateContent(
-    `You are rewriting a video description for an AI video generator (fal.ai) that CANNOT render readable text. Your job is to create a visually compelling prompt that captures the SUBJECT MATTER and EMOTIONAL TONE of the original — not necessarily the exact staging.
+    `You are rewriting a video description for an AI video generator (fal.ai) that cannot render readable text. Keep the scene as close to the original as possible. Same people, same actions, same setting, same objects, same mood.
 
-IMPORTANT: Many descriptions describe someone "presenting information" or "showing text/cards/labels." Since the video generator cannot show readable text, you must REIMAGINE these as real-world visual scenes about the same subject. For example:
-- "A creator holds up age category cards (Puppy, Adult, Senior)" → "Close-up montage of a playful puppy, a calm adult dog, and a gentle senior dog resting, each in warm home settings"
-- "Text flashes showing dental exam tips" → "A veterinarian gently examining a dog's teeth in a bright clinic"
-- "A woman presents her skincare routine steps" → "Close-up of hands applying serum to glowing skin, soft bathroom lighting, steam rising"
+YOUR ONLY JOB is to remove elements that would cause READABLE TEXT to appear on screen:
+- Remove voiceover scripts, narration text, dialogue in quotes
+- Remove specific product names, brand names, category labels (e.g. "Omega-3 liquid" → "a bottle of liquid supplement", "Puppy, Adult, Senior" → "different supplement bottles")
+- Remove instructions about text overlays, disclaimers, captions, subtitles, hashtags
+- Remove numbered lists and colon-separated labels
 
-RULES:
-1. Identify the SUBJECT (what is the content actually about — pets? skincare? wellness?)
-2. Create a vivid, cinematic scene showing that subject in action — real moments, not presentations
-3. Include specific visual details: lighting, colors, camera angles, textures, setting
-4. Feature women when the scene includes people — this is for a female-focused audience
-5. NEVER include: readable text, labels, captions, subtitles, titles, narration instructions, dialogue, quotation marks, numbered lists, hashtags, colon-separated labels
-6. NEVER describe someone presenting, holding up items to camera, pointing at things, or demonstrating
-7. Keep it 2-3 sentences, under 120 words
-8. Output ONLY the rewritten prompt, nothing else
+KEEP EVERYTHING ELSE exactly as described:
+- Keep the person and what they are doing (opening a cabinet, applying skincare, pouring a drink)
+- Keep the setting (kitchen, bathroom, clinic, studio)
+- Keep specific objects (bottles, jars, containers, tools) — just don't specify what's written on them
+- Keep the mood, lighting, camera style
+- Keep the sequence of actions
+
+EXAMPLES of correct rewrites:
+- "A creator holds open their pet supplement cabinet. They reveal Omega-3 liquid, probiotics, and joint support chews." → "A woman opens a cabinet filled with supplement bottles and containers. She picks up several colorful bottles, examining each one with a smile. Warm kitchen lighting, close-up details."
+- "Text flashes: Annual blood work, Dental exams, Senior care timeline" → "A montage of a veterinarian caring for dogs — checking vitals, examining teeth, gentle handling of an older dog in a bright clinic."
+- "A woman presents her 5-step skincare routine" → "A woman goes through her skincare routine — applying serums, creams, and oils at her bathroom vanity. Soft warm lighting, mirror reflections, close-up of products and skin."
+
+Only reimagine the scene when the ENTIRE description is nothing but text/graphics with no physical scene at all.
+
+Feature women when the scene includes people.
+Keep it 2-3 sentences. Output ONLY the rewritten prompt.
 
 Theme: ${themeHint}
 
